@@ -4,199 +4,192 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Člověče Chaos!</title>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Segoe UI', sans-serif; background: #1a1a2e; color: #eee; min-height: 100vh; }
-  
-  #app { max-width: 900px; margin: 0 auto; padding: 16px; }
-  
-  .screen { display: none; }
-  .screen.active { display: block; }
-  
-  .title { font-size: 2.2rem; font-weight: 800; color: #f0c040; text-align: center; letter-spacing: 2px; margin-bottom: 8px; }
-  .subtitle { text-align: center; color: #aaa; margin-bottom: 24px; font-size: 0.95rem; }
-  
-  .card { background: #16213e; border: 1px solid #0f3460; border-radius: 12px; padding: 20px; margin-bottom: 16px; }
-  
-  .btn { padding: 12px 24px; border-radius: 8px; border: none; cursor: pointer; font-size: 1rem; font-weight: 600; transition: all 0.15s; display: inline-block; }
-  .btn:hover { transform: translateY(-1px); opacity: 0.9; }
-  .btn:active { transform: scale(0.97); }
-  .btn-gold { background: #f0c040; color: #1a1a2e; }
-  .btn-red { background: #e74c3c; color: #fff; }
-  .btn-green { background: #2ecc71; color: #1a1a2e; }
-  .btn-blue { background: #3498db; color: #fff; }
-  .btn-gray { background: #555; color: #eee; }
-  .btn-sm { padding: 7px 14px; font-size: 0.85rem; }
-  .btn-full { width: 100%; display: block; text-align: center; margin-bottom: 8px; }
-  
-  input[type=text], input[type=number] { background: #0f3460; border: 1px solid #0f3460; border-radius: 8px; padding: 10px 14px; color: #eee; font-size: 1rem; width: 100%; margin-bottom: 8px; outline: none; }
-  input[type=text]:focus, input[type=number]:focus { border-color: #f0c040; }
-  
-  .room-code { font-size: 3rem; font-weight: 900; color: #f0c040; text-align: center; letter-spacing: 8px; padding: 20px; background: #0f3460; border-radius: 12px; margin: 16px 0; }
-  
-  .player-list { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0; }
-  .player-chip { padding: 8px 16px; border-radius: 20px; font-weight: 700; font-size: 0.9rem; }
-  
-  .board-container { display: grid; grid-template-columns: 1fr 300px; gap: 16px; }
-  @media (max-width: 680px) { .board-container { grid-template-columns: 1fr; } }
-  
-  #board { position: relative; background: #f5f0e8; border-radius: 12px; border: 3px solid #333; }
-  
-  .side-panel { display: flex; flex-direction: column; gap: 10px; }
-  
-  .player-status { padding: 10px 14px; border-radius: 10px; border: 2px solid transparent; }
-  .player-status.active-turn { border-color: #f0c040; box-shadow: 0 0 12px rgba(240,192,64,0.4); }
-  
-  .dice { font-size: 3rem; text-align: center; padding: 10px; cursor: pointer; transition: transform 0.1s; user-select: none; }
-  .dice:hover { transform: scale(1.1); }
-  .dice.rolling { animation: rollDice 0.5s ease; }
-  @keyframes rollDice { 0%,100%{transform:rotate(0deg)} 25%{transform:rotate(-20deg) scale(1.2)} 75%{transform:rotate(20deg) scale(1.2)} }
-  
-  .bet-section { background: #0f3460; border-radius: 10px; padding: 12px; }
-  .bet-label { font-size: 0.8rem; color: #aaa; margin-bottom: 8px; }
-  .bet-options { display: flex; gap: 6px; flex-wrap: wrap; }
-  .bet-opt { padding: 5px 10px; border-radius: 6px; border: 1px solid #555; background: #1a1a2e; cursor: pointer; font-size: 0.8rem; transition: all 0.1s; }
-  .bet-opt:hover { border-color: #f0c040; color: #f0c040; }
-  .bet-opt.selected { background: #f0c040; color: #1a1a2e; border-color: #f0c040; font-weight: 700; }
-  
-  .coins { color: #f0c040; font-weight: 700; }
-  
-  .log { background: #0a0a1a; border-radius: 8px; padding: 10px; font-size: 0.78rem; color: #aaa; max-height: 120px; overflow-y: auto; }
-  .log-entry { padding: 2px 0; border-bottom: 1px solid #1a1a2e; }
-  
-  .modal-bg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 100; }
-  .modal { background: #16213e; border: 2px solid #f0c040; border-radius: 16px; padding: 28px; max-width: 440px; width: 90%; text-align: center; }
-  .modal h2 { color: #f0c040; margin-bottom: 12px; }
-  
-  .mini-options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 16px 0; }
-  
-  .roulette-gun { font-size: 4rem; margin: 16px 0; }
-  .rr-chambers { display: flex; gap: 8px; justify-content: center; margin: 12px 0; }
-  .chamber { width: 36px; height: 36px; border-radius: 50%; border: 2px solid #555; background: #0f3460; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
-  .chamber.bullet { background: #e74c3c; }
-  .chamber.safe { background: #2ecc71; }
-  
-  .cards-row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin: 12px 0; }
-  .playing-card { width: 56px; height: 80px; border-radius: 8px; background: #fff; color: #1a1a2e; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; font-weight: 900; border: 2px solid #ddd; }
-  .playing-card.red { color: #e74c3c; }
-  .playing-card.face-down { background: #0f3460; border-color: #3498db; }
-  
-  .dartboard { font-size: 5rem; margin: 8px 0; }
-  .dart-meter { width: 100%; height: 20px; background: #0f3460; border-radius: 10px; margin: 8px 0; overflow: hidden; position: relative; }
-  .dart-fill { height: 100%; border-radius: 10px; transition: width 0.05s linear; }
-  
-  .wheel-container { position: relative; margin: 12px auto; width: 200px; height: 200px; }
-  .wheel-result { font-size: 2rem; font-weight: 900; margin: 12px 0; }
-  
-  .winner-banner { font-size: 1.8rem; font-weight: 900; color: #f0c040; margin: 12px 0; }
-  .winner-coins { font-size: 1.1rem; color: #2ecc71; }
-  
-  .waiting-dots { display: inline-block; animation: dots 1.2s steps(3, end) infinite; }
-  @keyframes dots { 0%{content:'.'} 33%{content:'..'} 66%{content:'...'} }
-  
-  .turn-indicator { padding: 10px; background: #f0c040; color: #1a1a2e; border-radius: 8px; text-align: center; font-weight: 700; }
-  .waiting-indicator { padding: 10px; background: #0f3460; color: #aaa; border-radius: 8px; text-align: center; }
-  
-  .progress-bar { width: 100%; height: 8px; background: #0f3460; border-radius: 4px; overflow: hidden; }
-  .progress-fill { height: 100%; background: #f0c040; border-radius: 4px; transition: width 0.3s; }
-  
-  .pawn { position: absolute; width: 22px; height: 22px; border-radius: 50%; border: 3px solid rgba(255,255,255,0.8); display: flex; align-items: center; justify-content: center; font-size: 0.6rem; font-weight: 900; color: #fff; transition: all 0.4s ease; cursor: pointer; z-index: 5; box-shadow: 0 2px 6px rgba(0,0,0,0.4); }
-  
-  .safe-zone { stroke: #2ecc71; stroke-width: 2; fill: none; }
-  
-  .mini-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: 700; background: #e74c3c; color: #fff; margin-left: 6px; }
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito:wght@400;700;900&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Nunito',sans-serif;background:#0d0d1a;color:#eee;min-height:100vh;overflow-x:hidden}
+#app{max-width:960px;margin:0 auto;padding:16px}
+.screen{display:none}.screen.active{display:block}
 
-  .action-log-entry { padding: 6px 10px; background: #0f3460; border-radius: 6px; margin: 4px 0; font-size: 0.82rem; }
-  .action-log-entry.event { color: #f0c040; }
-  .action-log-entry.bet-win { color: #2ecc71; }
-  .action-log-entry.bet-lose { color: #e74c3c; }
+.title{font-family:'Bebas Neue',sans-serif;font-size:3rem;color:#f0c040;text-align:center;letter-spacing:4px;line-height:1;margin-bottom:4px}
+.subtitle{text-align:center;color:#888;margin-bottom:28px;font-size:0.9rem;letter-spacing:1px}
+
+.card{background:#16213e;border:1px solid #1e3a5f;border-radius:14px;padding:20px;margin-bottom:14px}
+.card-title{font-weight:900;color:#f0c040;font-size:1rem;margin-bottom:14px;letter-spacing:.5px}
+
+.btn{padding:11px 22px;border-radius:9px;border:none;cursor:pointer;font-family:'Nunito',sans-serif;font-size:.95rem;font-weight:700;transition:all .15s;display:inline-block}
+.btn:hover{transform:translateY(-1px);filter:brightness(1.1)}
+.btn:active{transform:scale(.97)}
+.btn-gold{background:#f0c040;color:#1a1a2e}
+.btn-red{background:#e74c3c;color:#fff}
+.btn-green{background:#27ae60;color:#fff}
+.btn-blue{background:#2980b9;color:#fff}
+.btn-gray{background:#2c3e50;color:#eee;border:1px solid #3d5166}
+.btn-full{width:100%;display:block;text-align:center;margin-bottom:8px}
+.btn-sm{padding:7px 13px;font-size:.82rem}
+
+input[type=text],input[type=number]{background:#0f2744;border:1.5px solid #1e3a5f;border-radius:9px;padding:10px 14px;color:#eee;font-family:'Nunito',sans-serif;font-size:.95rem;width:100%;margin-bottom:10px;outline:none;transition:border .15s}
+input[type=text]:focus,input[type=number]:focus{border-color:#f0c040}
+
+.room-code{font-family:'Bebas Neue',sans-serif;font-size:3.5rem;color:#f0c040;text-align:center;letter-spacing:10px;padding:18px;background:#0f2744;border-radius:12px;margin:14px 0;border:1px dashed #f0c04066}
+
+.player-chip{padding:7px 16px;border-radius:20px;font-weight:700;font-size:.88rem;display:inline-block}
+
+/* Board layout */
+.board-container{display:grid;grid-template-columns:1fr 290px;gap:14px}
+@media(max-width:680px){.board-container{grid-template-columns:1fr}}
+#board{border-radius:12px;border:3px solid #1e3a5f;display:block;width:100%;max-width:500px}
+
+/* Side panel */
+.side-panel{display:flex;flex-direction:column;gap:10px}
+.player-status{padding:9px 13px;border-radius:9px;border:2px solid transparent;transition:border-color .2s}
+.player-status.active-turn{border-color:#f0c040;box-shadow:0 0 14px rgba(240,192,64,.35)}
+
+.dice-wrap{text-align:center}
+.dice{font-size:3.2rem;cursor:pointer;transition:transform .1s;user-select:none;display:inline-block;line-height:1}
+.dice:hover{transform:scale(1.12)}
+.dice.rolling{animation:rollDice .5s ease}
+@keyframes rollDice{0%,100%{transform:rotate(0)scale(1)}30%{transform:rotate(-25deg)scale(1.25)}70%{transform:rotate(25deg)scale(1.25)}}
+
+.bet-section{background:#0f2744;border-radius:10px;padding:11px;border:1px solid #1e3a5f}
+.bet-label{font-size:.78rem;color:#888;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px}
+.bet-options{display:flex;gap:5px;flex-wrap:wrap}
+.bet-opt{padding:5px 10px;border-radius:7px;border:1.5px solid #2c3e50;background:#16213e;cursor:pointer;font-size:.82rem;font-weight:700;transition:all .1s;color:#aaa}
+.bet-opt:hover{border-color:#f0c040;color:#f0c040}
+.bet-opt.selected{background:#f0c040;color:#1a1a2e;border-color:#f0c040}
+
+.coins{color:#f0c040;font-weight:900}
+.log{background:#080d1e;border-radius:8px;padding:9px;font-size:.76rem;color:#888;max-height:110px;overflow-y:auto;border:1px solid #1e3a5f}
+.log-entry{padding:2px 0;border-bottom:1px solid #0d1830}
+
+/* Modals */
+.modal-bg{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:center;z-index:100}
+.modal{background:#16213e;border:2px solid #f0c040;border-radius:18px;padding:28px;max-width:460px;width:92%;text-align:center;max-height:90vh;overflow-y:auto}
+.modal h2{font-family:'Bebas Neue',sans-serif;color:#f0c040;font-size:1.8rem;letter-spacing:2px;margin-bottom:10px}
+
+.mini-bet-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:14px 0}
+
+/* Minihra specifics */
+.rr-chambers{display:flex;gap:8px;justify-content:center;margin:12px 0;flex-wrap:wrap}
+.chamber{width:40px;height:40px;border-radius:50%;border:2px solid #2c3e50;background:#0f2744;display:flex;align-items:center;justify-content:center;font-size:1.3rem;transition:all .3s}
+.chamber.bullet{background:#c0392b;border-color:#e74c3c;animation:bang .3s ease}
+.chamber.safe{background:#1e8449;border-color:#27ae60}
+@keyframes bang{0%{transform:scale(1)}50%{transform:scale(1.4)}100%{transform:scale(1)}}
+
+.cards-row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:10px 0}
+.playing-card{width:54px;height:78px;border-radius:8px;background:#fff;color:#1a1a2e;display:flex;align-items:center;justify-content:center;font-size:1.4rem;font-weight:900;border:2px solid #ddd;flex-direction:column;gap:1px}
+.playing-card.red{color:#c0392b}
+.playing-card.face-down{background:#0f2744;border-color:#2980b9}
+.playing-card .suit{font-size:.8rem}
+
+.dart-meter-wrap{margin:14px 0}
+.dart-meter{width:100%;height:22px;background:#0f2744;border-radius:11px;overflow:hidden;border:1px solid #1e3a5f}
+.dart-fill{height:100%;border-radius:11px;background:linear-gradient(90deg,#e74c3c 0%,#f0c040 50%,#27ae60 100%);transition:width .05s linear}
+
+.wheel-display{font-size:4rem;margin:12px 0;animation:wheelSpin .8s ease-out}
+@keyframes wheelSpin{0%{transform:rotate(0) scale(1.3)}100%{transform:rotate(720deg) scale(1)}}
+.wheel-result-text{font-size:1.6rem;font-weight:900;color:#f0c040;margin:10px 0}
+
+.turn-indicator{padding:10px 14px;background:#f0c040;color:#1a1a2e;border-radius:9px;text-align:center;font-weight:900;font-size:.9rem}
+.waiting-indicator{padding:10px 14px;background:#0f2744;color:#888;border-radius:9px;text-align:center;font-size:.9rem;border:1px solid #1e3a5f}
+
+.winner-screen{text-align:center;padding:20px 0}
+.winner-trophy{font-size:5rem;margin-bottom:10px;animation:bounce 1s ease infinite alternate}
+@keyframes bounce{from{transform:translateY(0)}to{transform:translateY(-10px)}}
+.winner-name{font-family:'Bebas Neue',sans-serif;font-size:2.8rem;color:#f0c040;letter-spacing:3px}
+
+.status-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:5px}
+.dot-green{background:#27ae60}
+.dot-gray{background:#555}
+
+.notification{position:fixed;top:20px;right:20px;background:#16213e;border:1px solid #f0c040;border-radius:10px;padding:12px 18px;font-size:.88rem;color:#f0c040;z-index:200;animation:slideIn .3s ease;max-width:260px}
+@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+
+.divider{height:1px;background:#1e3a5f;margin:12px 0}
 </style>
 </head>
 <body>
 <div id="app">
 
-<!-- LOBBY SCREEN -->
+<!-- LOBBY -->
 <div id="screen-lobby" class="screen active">
-  <div style="text-align:center; padding: 40px 20px 20px;">
-    <div class="title">🎲 ČLOVĚČE CHAOS!</div>
-    <div class="subtitle">Desková hra se sázkami, minihrama a zrádnými výzvami</div>
+  <div style="text-align:center;padding:40px 20px 20px">
+    <div class="title">🎲 Člověče Chaos!</div>
+    <div class="subtitle">MULTIPLAYER • SÁZENÍ • MINIHRY • CHAOS</div>
   </div>
-  <div style="max-width: 420px; margin: 0 auto;">
+  <div style="max-width:420px;margin:0 auto">
     <div class="card">
-      <div style="margin-bottom: 16px; font-weight: 700; color: #f0c040; font-size: 1.1rem;">Krok 1 – Tvoje jméno</div>
-      <input type="text" id="player-name-input" placeholder="Zadej přezdívku..." maxlength="12">
+      <div class="card-title">👤 Tvoje přezdívka</div>
+      <input type="text" id="player-name" placeholder="Zadej jméno..." maxlength="14">
     </div>
     <div class="card">
-      <div style="margin-bottom: 16px; font-weight: 700; color: #f0c040; font-size: 1.1rem;">Krok 2 – Místnost</div>
-      <button class="btn btn-gold btn-full" onclick="createRoom()">✨ Vytvořit novou místnost</button>
-      <div style="text-align:center; color: #666; margin: 8px 0; font-size: 0.85rem;">– nebo –</div>
-      <input type="text" id="join-code-input" placeholder="Kód místnosti (4 znaky)..." maxlength="4" style="text-transform:uppercase; letter-spacing:4px; text-align:center;">
-      <button class="btn btn-blue btn-full" onclick="joinRoom()">🚪 Připojit se</button>
+      <div class="card-title">🚀 Vytvořit místnost</div>
+      <button class="btn btn-gold btn-full" style="font-size:1rem;padding:13px" onclick="createRoom()">✨ Nová místnost</button>
     </div>
-    <div id="lobby-error" style="color: #e74c3c; text-align:center; font-size:0.9rem; min-height: 20px;"></div>
+    <div class="card">
+      <div class="card-title">🚪 Připojit se ke hře</div>
+      <input type="text" id="join-code" placeholder="Kód místnosti (4 znaky)..." maxlength="4" style="text-transform:uppercase;letter-spacing:5px;text-align:center;font-size:1.2rem">
+      <button class="btn btn-blue btn-full" onclick="joinRoom()">Připojit se →</button>
+    </div>
+    <div id="lobby-err" style="color:#e74c3c;text-align:center;font-size:.88rem;min-height:20px;margin-top:4px"></div>
   </div>
 </div>
 
-<!-- WAITING ROOM SCREEN -->
+<!-- WAITING ROOM -->
 <div id="screen-waiting" class="screen">
-  <div style="max-width: 500px; margin: 0 auto; padding-top: 30px;">
-    <div class="title" style="font-size: 1.6rem;">🎮 Čekárna</div>
-    <div id="waiting-room-code" class="room-code"></div>
-    <div style="text-align:center; color:#aaa; margin-bottom: 16px; font-size: 0.85rem;">Pošli kód ostatním hráčům</div>
+  <div style="max-width:500px;margin:0 auto;padding-top:30px">
+    <div class="title" style="font-size:2rem">🎮 Čekárna</div>
+    <div id="wait-code" class="room-code"></div>
+    <div style="text-align:center;color:#666;margin-bottom:16px;font-size:.85rem">📱 Pošli kód kamarádům</div>
     <div class="card">
-      <div style="font-weight:700; color:#f0c040; margin-bottom:12px;">Hráči v místnosti</div>
-      <div id="waiting-players" class="player-list"></div>
-      <div style="margin-top:12px; color:#aaa; font-size:0.85rem;">Potřeba min. 2, max. 4 hráči</div>
+      <div class="card-title">Hráči v místnosti</div>
+      <div id="wait-players" style="display:flex;flex-wrap:wrap;gap:9px;margin-bottom:10px"></div>
+      <div style="color:#555;font-size:.82rem">Min. 2, max. 4 hráči</div>
     </div>
-    <div id="start-btn-area" style="display:none;">
-      <button class="btn btn-gold btn-full" onclick="startGame()" style="font-size: 1.1rem; padding: 14px;">🚀 Spustit hru!</button>
+    <div id="start-area" style="display:none">
+      <button class="btn btn-gold btn-full" style="font-size:1.1rem;padding:15px" onclick="startGame()">🚀 Spustit hru!</button>
     </div>
-    <div id="waiting-status" style="text-align:center; color:#aaa; margin-top:12px;"></div>
+    <div id="wait-status" style="text-align:center;color:#666;margin-top:10px;font-size:.88rem"></div>
   </div>
 </div>
 
-<!-- GAME SCREEN -->
+<!-- GAME -->
 <div id="screen-game" class="screen">
-  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px; flex-wrap:wrap; gap:8px;">
-    <div style="font-weight:900; color:#f0c040; font-size:1.1rem;">🎲 Člověče Chaos!</div>
-    <div id="room-code-display" style="font-size:0.8rem; color:#666; background:#0f3460; padding:4px 12px; border-radius:20px;"></div>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:#f0c040;letter-spacing:2px">🎲 Člověče Chaos!</div>
+    <div id="code-badge" style="font-size:.8rem;color:#555;background:#0f2744;padding:4px 13px;border-radius:20px;border:1px solid #1e3a5f"></div>
   </div>
-  
   <div class="board-container">
-    <div>
-      <canvas id="board" width="500" height="500"></canvas>
-    </div>
+    <div><canvas id="board" width="500" height="500"></canvas></div>
     <div class="side-panel">
       <div id="players-panel"></div>
-      
-      <div id="turn-section">
-        <div id="turn-indicator-div"></div>
-      </div>
-      
-      <div id="dice-section" style="display:none;">
+      <div id="turn-div"></div>
+      <div id="dice-section" style="display:none">
         <div class="bet-section">
-          <div class="bet-label">🎰 Vsadit na výsledek kostky? (nepovinné)</div>
+          <div class="bet-label">🎰 Vsadit na kostku? (volitelné)</div>
           <div class="bet-options" id="dice-bet-opts">
-            <div class="bet-opt" onclick="selectDiceBet(1)">1</div>
-            <div class="bet-opt" onclick="selectDiceBet(2)">2</div>
-            <div class="bet-opt" onclick="selectDiceBet(3)">3</div>
-            <div class="bet-opt" onclick="selectDiceBet(4)">4</div>
-            <div class="bet-opt" onclick="selectDiceBet(5)">5</div>
-            <div class="bet-opt" onclick="selectDiceBet(6)">6</div>
+            <div class="bet-opt" onclick="selectBet(1)">1</div>
+            <div class="bet-opt" onclick="selectBet(2)">2</div>
+            <div class="bet-opt" onclick="selectBet(3)">3</div>
+            <div class="bet-opt" onclick="selectBet(4)">4</div>
+            <div class="bet-opt" onclick="selectBet(5)">5</div>
+            <div class="bet-opt" onclick="selectBet(6)">6</div>
           </div>
-          <div id="dice-bet-amount" style="margin-top:6px; font-size:0.8rem;">
-            Sázka: <input type="number" id="bet-amount-input" min="5" max="200" value="20" style="width:70px; display:inline; padding:4px 8px; font-size:0.85rem;"> mincí
+          <div style="margin-top:7px;font-size:.8rem;color:#888">
+            Sázka: <input type="number" id="bet-amt" min="5" max="200" value="20" style="width:65px;display:inline;padding:4px 8px;font-size:.82rem;margin-bottom:0"> mincí
           </div>
         </div>
-        <div class="dice" id="dice-el" onclick="rollDice()">🎲</div>
-        <div style="text-align:center; font-size:0.8rem; color:#aaa;">Klikni pro hod</div>
+        <div class="dice-wrap" style="margin-top:6px">
+          <div class="dice" id="dice-el" onclick="rollDice()">🎲</div>
+          <div style="font-size:.75rem;color:#555;margin-top:2px">klikni pro hod</div>
+        </div>
       </div>
-      
-      <div id="move-section" style="display:none;">
-        <div style="font-size:0.85rem; color:#f0c040; margin-bottom:6px;">Vyber figurku pro pohyb:</div>
-        <div id="pawn-move-btns"></div>
+      <div id="move-section" style="display:none">
+        <div style="font-size:.82rem;color:#f0c040;margin-bottom:6px;font-weight:700">Vyber figurku:</div>
+        <div id="move-btns"></div>
       </div>
-      
       <div class="log" id="game-log"></div>
     </div>
   </div>
@@ -204,1203 +197,738 @@
 
 </div>
 
-<!-- MINIHRA MODAL -->
-<div id="mini-modal" class="modal-bg" style="display:none;">
-  <div class="modal">
-    <div id="mini-content"></div>
-  </div>
+<!-- MINI BET MODAL -->
+<div id="modal-mini-bet" class="modal-bg" style="display:none">
+  <div class="modal"><div id="mini-bet-body"></div></div>
 </div>
 
-<!-- BET ON MINI MODAL -->
-<div id="mini-bet-modal" class="modal-bg" style="display:none;">
-  <div class="modal">
-    <div id="mini-bet-content"></div>
-  </div>
+<!-- MINI GAME MODAL -->
+<div id="modal-mini" class="modal-bg" style="display:none">
+  <div class="modal"><div id="mini-body"></div></div>
 </div>
 
 <!-- WINNER MODAL -->
-<div id="winner-modal" class="modal-bg" style="display:none;">
-  <div class="modal">
-    <div id="winner-content"></div>
-  </div>
+<div id="modal-winner" class="modal-bg" style="display:none">
+  <div class="modal"><div id="winner-body"></div></div>
 </div>
 
 <script>
-const PLAYER_COLORS = ['#e74c3c','#3498db','#2ecc71','#f39c12'];
-const PLAYER_NAMES_DEFAULT = ['Červený','Modrý','Zelený','Žlutý'];
-const PLAYER_BG = ['#3d1515','#152d3d','#153d1d','#3d2e00'];
-const SAFE_SQUARES = [0, 8, 13, 21, 26, 34, 39, 47]; // safe squares on board
+// ===== FIREBASE CONFIG =====
+firebase.initializeApp({
+  apiKey: "AIzaSyDummy-replaced-by-database-url",
+  databaseURL: "https://clovece-nezlob-se-fdb9f-default-rtdb.europe-west1.firebasedatabase.app"
+});
+const db = firebase.database();
 
-const BOARD_SIZE = 500;
-const TOTAL_SQUARES = 52;
-const HOME_STRETCH = 6;
-const PIECES_PER_PLAYER = 4;
+// ===== CONSTANTS =====
+const COLORS = ['#e74c3c','#3498db','#2ecc71','#f0c040'];
+const COLOR_BG = ['#3d0f0f','#0f1f3d','#0f3d1a','#3d2e00'];
+const PIECES = 4;
+const TOTAL = 52;
+const SAFE = new Set([0,8,13,21,26,34,39,47]);
+const START_POS = [0,13,26,39];
+const MINI_TRIGGER_SQUARES = new Set([5,10,18,23,31,36,44,49]);
+const DICE_FACES = ['⚀','⚁','⚂','⚃','⚄','⚅'];
+const MINI_NAMES = {russian_roulette:'🔫 Ruská Ruleta',blackjack:'🃏 Blackjack',darts:'🎯 Šipky',wheel:'🎡 Kolo Osudu'};
 
-// State
-let myId = null;
-let myName = '';
-let roomCode = '';
-let isHost = false;
-let pollInterval = null;
-let gameState = null;
-let selectedDiceBet = null;
-let selectedDiceBetAmount = 20;
-let pawnAnimations = {};
+// ===== STATE =====
+let myId = null, myName = '', roomCode = '', isHost = false;
+let gs = null;
+let selectedBet = null;
+let dartMeterRunning = false, dartVal = 0, dartDir = 1;
+let unsubscribeGame = null;
+let unsubscribeRoom = null;
 
-// ===== STORAGE HELPERS =====
-async function storageSave(key, value) {
-  try { await window.storage.set(key, JSON.stringify(value), true); } catch(e) {}
-}
-async function storageLoad(key) {
-  try {
-    const r = await window.storage.get(key, true);
-    return r ? JSON.parse(r.value) : null;
-  } catch(e) { return null; }
-}
-async function storageDel(key) {
-  try { await window.storage.delete(key, true); } catch(e) {}
+// ===== UTILS =====
+function uid() { return 'p' + Math.random().toString(36).slice(2,9); }
+function code4() { return Math.random().toString(36).slice(2,6).toUpperCase(); }
+function showScreen(id) { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); document.getElementById('screen-'+id).classList.add('active'); }
+function err(msg) { document.getElementById('lobby-err').textContent = msg; }
+function notify(msg) {
+  const n = document.createElement('div'); n.className = 'notification'; n.textContent = msg;
+  document.body.appendChild(n); setTimeout(() => n.remove(), 3000);
 }
 
-// ===== SCREEN MANAGEMENT =====
-function showScreen(id) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  document.getElementById('screen-' + id).classList.add('active');
-}
+// ===== FIREBASE HELPERS =====
+function roomRef(c) { return db.ref('rooms/' + c); }
+function gameRef(c) { return db.ref('games/' + c); }
 
 // ===== LOBBY =====
-function generateRoomCode() {
-  return Math.random().toString(36).substring(2,6).toUpperCase();
-}
-
 async function createRoom() {
-  const name = document.getElementById('player-name-input').value.trim();
-  if (!name) { document.getElementById('lobby-error').textContent = 'Zadej přezdívku!'; return; }
-  
-  myId = 'p_' + Math.random().toString(36).substring(2,8);
-  myName = name;
-  roomCode = generateRoomCode();
-  isHost = true;
-  
-  const room = {
-    code: roomCode,
-    host: myId,
-    status: 'waiting',
-    players: [{ id: myId, name: myName, color: 0 }],
-    created: Date.now()
-  };
-  
-  await storageSave('room_' + roomCode, room);
-  showWaitingRoom(room);
-  startRoomPoll();
+  const name = document.getElementById('player-name').value.trim();
+  if (!name) { err('Zadej přezdívku!'); return; }
+  myId = uid(); myName = name; roomCode = code4(); isHost = true;
+  const room = { code: roomCode, host: myId, status: 'waiting', players: [{ id: myId, name: myName, color: 0 }], ts: Date.now() };
+  await roomRef(roomCode).set(room);
+  showWaiting(room);
+  listenRoom();
 }
 
 async function joinRoom() {
-  const name = document.getElementById('player-name-input').value.trim();
-  if (!name) { document.getElementById('lobby-error').textContent = 'Zadej přezdívku!'; return; }
-  const code = document.getElementById('join-code-input').value.trim().toUpperCase();
-  if (code.length !== 4) { document.getElementById('lobby-error').textContent = 'Zadej 4místný kód!'; return; }
-  
-  const room = await storageLoad('room_' + code);
-  if (!room) { document.getElementById('lobby-error').textContent = 'Místnost nenalezena!'; return; }
-  if (room.status !== 'waiting') { document.getElementById('lobby-error').textContent = 'Hra už běží!'; return; }
-  if (room.players.length >= 4) { document.getElementById('lobby-error').textContent = 'Místnost je plná!'; return; }
-  
-  myId = 'p_' + Math.random().toString(36).substring(2,8);
-  myName = name;
-  roomCode = code;
-  isHost = false;
-  
+  const name = document.getElementById('player-name').value.trim();
+  if (!name) { err('Zadej přezdívku!'); return; }
+  const code = document.getElementById('join-code').value.trim().toUpperCase();
+  if (code.length !== 4) { err('Zadej 4místný kód!'); return; }
+  const snap = await roomRef(code).once('value');
+  const room = snap.val();
+  if (!room) { err('Místnost neexistuje!'); return; }
+  if (room.status !== 'waiting') { err('Hra už běží!'); return; }
+  if (room.players && room.players.length >= 4) { err('Místnost je plná!'); return; }
+  myId = uid(); myName = name; roomCode = code; isHost = false;
   const colorIdx = room.players.length;
   room.players.push({ id: myId, name: myName, color: colorIdx });
-  await storageSave('room_' + roomCode, room);
-  
-  showWaitingRoom(room);
-  startRoomPoll();
+  await roomRef(code).set(room);
+  showWaiting(room);
+  listenRoom();
 }
 
-function showWaitingRoom(room) {
+function showWaiting(room) {
   showScreen('waiting');
-  document.getElementById('waiting-room-code').textContent = roomCode;
-  renderWaitingPlayers(room.players);
-  document.getElementById('start-btn-area').style.display = (isHost && room.players.length >= 2) ? 'block' : 'none';
-  document.getElementById('waiting-status').textContent = isHost ? 'Čekáš na hráče...' : 'Čekáš, host spustí hru...';
+  document.getElementById('wait-code').textContent = roomCode;
+  renderWaitPlayers(room.players);
+  document.getElementById('start-area').style.display = (isHost && room.players && room.players.length >= 2) ? 'block' : 'none';
+  document.getElementById('wait-status').textContent = isHost ? 'Čekáš na kamarády...' : 'Čekáš, host spustí hru...';
 }
 
-function renderWaitingPlayers(players) {
-  const el = document.getElementById('waiting-players');
-  el.innerHTML = players.map(p => `
-    <div class="player-chip" style="background:${PLAYER_COLORS[p.color]}22; color:${PLAYER_COLORS[p.color]}; border: 1px solid ${PLAYER_COLORS[p.color]}44;">
-      ${p.id === myId ? '★ ' : ''}${p.name}
-    </div>
-  `).join('');
-}
-
-let roomPollInt = null;
-function startRoomPoll() {
-  clearInterval(roomPollInt);
-  roomPollInt = setInterval(async () => {
-    const room = await storageLoad('room_' + roomCode);
+function listenRoom() {
+  if (unsubscribeRoom) unsubscribeRoom();
+  const ref = roomRef(roomCode);
+  const handler = ref.on('value', snap => {
+    const room = snap.val();
     if (!room) return;
-    
     if (room.status === 'waiting') {
-      renderWaitingPlayers(room.players);
-      document.getElementById('start-btn-area').style.display = (isHost && room.players.length >= 2) ? 'block' : 'none';
+      renderWaitPlayers(room.players);
+      document.getElementById('start-area').style.display = (isHost && room.players && room.players.length >= 2) ? 'block' : 'none';
     } else if (room.status === 'playing') {
-      clearInterval(roomPollInt);
-      const gs = await storageLoad('game_' + roomCode);
-      if (gs) { gameState = gs; enterGameScreen(); }
+      ref.off('value', handler);
+      listenGame();
     }
-  }, 1500);
+  });
+  unsubscribeRoom = () => ref.off('value', handler);
+}
+
+function renderWaitPlayers(players) {
+  document.getElementById('wait-players').innerHTML = (players||[]).map(p =>
+    `<div class="player-chip" style="background:${COLORS[p.color]}22;color:${COLORS[p.color]};border:1px solid ${COLORS[p.color]}55">${p.id===myId?'★ ':''}${p.name}</div>`
+  ).join('');
 }
 
 async function startGame() {
-  const room = await storageLoad('room_' + roomCode);
+  const snap = await roomRef(roomCode).once('value');
+  const room = snap.val();
   if (!room) return;
-  
-  room.status = 'playing';
-  await storageSave('room_' + roomCode, room);
-  
-  const gs = initGameState(room.players);
-  await storageSave('game_' + roomCode, gs);
-  gameState = gs;
-  enterGameScreen();
+  await roomRef(roomCode).update({ status: 'playing' });
+  const state = initGame(room.players);
+  await gameRef(roomCode).set(state);
 }
 
-// ===== GAME STATE INIT =====
-function initGameState(players) {
+// ===== GAME INIT =====
+function initGame(players) {
   const pawns = [];
-  players.forEach((p, pi) => {
-    for (let i = 0; i < PIECES_PER_PLAYER; i++) {
-      pawns.push({ id: `${pi}_${i}`, player: pi, pos: -1, finished: false });
-    }
-  });
+  players.forEach((p,pi) => { for(let i=0;i<PIECES;i++) pawns.push({id:`${pi}_${i}`,player:pi,pos:-1,finished:false}); });
   return {
-    players: players.map((p, i) => ({ ...p, color: i, coins: 200, finished: false })),
-    pawns,
-    turn: 0,
-    phase: 'bet_or_roll', // bet_or_roll | move | mini_bet | mini_game | end
-    dice: null,
-    diceBets: {},
-    miniBet: null,
-    miniGame: null,
-    miniBets: {},
-    log: ['🎲 Hra začala! Vítej v Člověče Chaos!'],
-    miniTrigger: null,
-    lastUpdate: Date.now()
+    players: players.map((p,i) => ({...p,color:i,coins:200,finished:false})),
+    pawns, turn:0, phase:'bet_or_roll',
+    dice:null, diceBets:{}, miniGame:null, miniTrigger:null,
+    miniData:null, miniPlayerBets:{}, miniPot:0, miniWinner:null,
+    winner:null, log:['🎲 Hra začala! Vítejte v Člověče Chaos!'], ts:Date.now()
   };
 }
 
-// ===== GAME SCREEN =====
-function enterGameScreen() {
-  clearInterval(roomPollInt);
+// ===== LISTEN GAME =====
+function listenGame() {
+  if (unsubscribeGame) unsubscribeGame();
   showScreen('game');
-  document.getElementById('room-code-display').textContent = 'Kód: ' + roomCode;
-  
-  drawBoard();
-  renderGameUI();
-  
-  pollInterval = setInterval(pollGameState, 1200);
-}
-
-async function pollGameState() {
-  const gs = await storageLoad('game_' + roomCode);
-  if (!gs) return;
-  if (gs.lastUpdate !== gameState.lastUpdate) {
-    gameState = gs;
-    renderGameUI();
-    drawBoard();
+  document.getElementById('code-badge').textContent = 'Kód: ' + roomCode;
+  drawBoard(null);
+  const ref = gameRef(roomCode);
+  const handler = ref.on('value', snap => {
+    const state = snap.val();
+    if (!state) return;
+    gs = state;
+    drawBoard(gs);
+    renderUI();
     handleModals();
-  }
+  });
+  unsubscribeGame = () => ref.off('value', handler);
 }
 
-// ===== BOARD DRAWING =====
-const BOARD_PATH = []; // will compute square positions
-const HOME_PATHS = [[], [], [], []];
-
-function computeBoard() {
-  // Standard ludo board path (simplified 52 squares outer ring, 6 home stretches)
-  const c = BOARD_SIZE / 2;
-  const cell = BOARD_SIZE / 11;
-  const sq = [];
-  
-  // Build outer path squares (52 total), clockwise from bottom-left
-  // Left column (bottom to top): cols 0, rows 10->4
-  for (let r = 10; r >= 4; r--) sq.push({ x: cell * 0 + cell/2, y: cell * r + cell/2 });
-  // Top-left area
-  for (let col = 0; col <= 3; col++) sq.push({ x: cell * col + cell/2, y: cell * 4 + cell/2 });
-  // Top row (left to right top area)
-  for (let r = 3; r >= 0; r--) sq.push({ x: cell * 4 + cell/2, y: cell * r + cell/2 });
-  // Right of top (top row right side)
-  for (let col = 5; col <= 10; col++) sq.push({ x: cell * col + cell/2, y: cell * 0 + cell/2 });
-  // Right column
-  for (let r = 1; r <= 6; r++) sq.push({ x: cell * 10 + cell/2, y: cell * r + cell/2 });
-  // Bottom right area
-  for (let col = 10; col >= 7; col--) sq.push({ x: cell * col + cell/2, y: cell * 6 + cell/2 });
-  for (let r = 7; r <= 10; r++) sq.push({ x: cell * 6 + cell/2, y: cell * r + cell/2 });
-  for (let col = 5; col >= 1; col--) sq.push({ x: cell * col + cell/2, y: cell * 10 + cell/2 });
-  
-  // Normalize to 52
-  while (sq.length > TOTAL_SQUARES) sq.pop();
-  while (sq.length < TOTAL_SQUARES) sq.push(sq[sq.length-1]);
-  
+// ===== BOARD =====
+let boardSq = [];
+function computeSquares() {
+  const c = 500/11, sq = [];
+  for(let r=10;r>=4;r--) sq.push({x:c*.5,y:c*r+c*.5});
+  for(let col=0;col<=3;col++) sq.push({x:c*col+c*.5,y:c*4+c*.5});
+  for(let r=3;r>=0;r--) sq.push({x:c*4+c*.5,y:c*r+c*.5});
+  for(let col=5;col<=10;col++) sq.push({x:c*col+c*.5,y:c*.5});
+  for(let r=1;r<=6;r++) sq.push({x:c*10+c*.5,y:c*r+c*.5});
+  for(let col=10;col>=7;col--) sq.push({x:c*col+c*.5,y:c*6+c*.5});
+  for(let r=7;r<=10;r++) sq.push({x:c*6+c*.5,y:c*r+c*.5});
+  for(let col=5;col>=1;col--) sq.push({x:c*col+c*.5,y:c*10+c*.5});
+  while(sq.length>TOTAL) sq.pop();
+  while(sq.length<TOTAL) sq.push(sq[sq.length-1]);
   return sq;
 }
+boardSq = computeSquares();
 
-let boardSquares = [];
+const HOME_STRETCH = [
+  [[1,9],[1,8],[1,7],[1,6],[1,5],[1,4]],
+  [[5,1],[5,2],[5,3],[5,4],[5,5],[5,6]],
+  [[9,5],[9,6],[9,7],[9,8],[9,9],[9,10]],
+  [[5,9],[5,8],[5,7],[5,6],[5,5],[5,4]]
+];
 
-function drawBoard() {
-  const canvas = document.getElementById('board');
-  const ctx = canvas.getContext('2d');
-  const cell = BOARD_SIZE / 11;
-  
-  ctx.clearRect(0, 0, BOARD_SIZE, BOARD_SIZE);
-  
-  // Background
-  ctx.fillStyle = '#f5f0e8';
-  ctx.fillRect(0, 0, BOARD_SIZE, BOARD_SIZE);
-  
-  // Draw grid
-  ctx.strokeStyle = '#ccc';
-  ctx.lineWidth = 0.5;
-  for (let i = 0; i <= 11; i++) {
-    ctx.beginPath(); ctx.moveTo(i * cell, 0); ctx.lineTo(i * cell, BOARD_SIZE); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(0, i * cell); ctx.lineTo(BOARD_SIZE, i * cell); ctx.stroke();
+function drawBoard(state) {
+  const cv = document.getElementById('board');
+  const ctx = cv.getContext('2d');
+  const W = 500, cell = W/11;
+  ctx.clearRect(0,0,W,W);
+  ctx.fillStyle='#f5f0e8'; ctx.fillRect(0,0,W,W);
+
+  // Grid
+  ctx.strokeStyle='#d4cfc5'; ctx.lineWidth=.5;
+  for(let i=0;i<=11;i++){
+    ctx.beginPath();ctx.moveTo(i*cell,0);ctx.lineTo(i*cell,W);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(0,i*cell);ctx.lineTo(W,i*cell);ctx.stroke();
   }
-  
-  // Home areas (corners)
-  const homes = [
-    { x: 0, y: 0, color: '#e74c3c22', border: '#e74c3c' },
-    { x: cell * 6, y: 0, color: '#3498db22', border: '#3498db' },
-    { x: cell * 6, y: cell * 6, color: '#2ecc7122', border: '#2ecc71' },
-    { x: 0, y: cell * 6, color: '#f39c1222', border: '#f39c12' }
-  ];
-  homes.forEach(h => {
-    ctx.fillStyle = h.color;
-    ctx.strokeStyle = h.border;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.roundRect(h.x + 4, h.y + 4, cell * 5 - 8, cell * 5 - 8, 8);
-    ctx.fill(); ctx.stroke();
+
+  // Home corners
+  [[0,0,'#e74c3c'],[cell*6,0,'#3498db'],[cell*6,cell*6,'#2ecc71'],[0,cell*6,'#f0c040']].forEach(([x,y,col])=>{
+    ctx.fillStyle=col+'25'; ctx.strokeStyle=col; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.roundRect(x+4,y+4,cell*5-8,cell*5-8,8); ctx.fill(); ctx.stroke();
   });
-  
-  // Center (finish)
-  ctx.fillStyle = '#f0c04033';
-  ctx.strokeStyle = '#f0c040';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.roundRect(cell * 4, cell * 4, cell * 3, cell * 3, 8);
-  ctx.fill(); ctx.stroke();
-  ctx.fillStyle = '#f0c040';
-  ctx.font = `${cell * 0.8}px serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('🏁', cell * 5.5, cell * 5.5);
-  
-  // Home stretch paths (colored)
-  const stretchConfigs = [
-    { startSq: 0, col: 1, rowStart: 5, rowEnd: 10, isCol: false, cx: 1, ry: 5, color: '#e74c3c' },
-    { startSq: 13, col: 4, rowStart: 1, rowEnd: 5, isCol: true, cx: 4, ry: 1, color: '#3498db' },
-    { startSq: 26, col: 9, rowStart: 5, rowEnd: 10, isCol: false, cx: 9, ry: 5, color: '#2ecc71' },
-    { startSq: 39, col: 4, rowStart: 6, rowEnd: 10, isCol: true, cx: 4, ry: 6, color: '#f39c12' }
-  ];
-  
-  // Draw home stretch arrows
-  const arrowData = [
-    { cells: [[1,9],[1,8],[1,7],[1,6],[1,5],[1,4]], color: '#e74c3c' },
-    { cells: [[5,1],[5,2],[5,3],[5,4],[5,5],[5,6]], color: '#3498db' },
-    { cells: [[9,5],[9,6],[9,7],[9,8],[9,9],[9,10]], color: '#2ecc71' },
-    { cells: [[5,9],[5,8],[5,7],[5,6],[5,5],[5,4]], color: '#f39c12' },
-  ];
-  
-  arrowData.forEach(a => {
-    a.cells.forEach((cell_pos, idx) => {
-      const [col, row] = cell_pos;
-      ctx.fillStyle = a.color + (idx === 5 ? 'ff' : '66');
-      ctx.fillRect(col * cell + 1, row * cell + 1, cell - 2, cell - 2);
+
+  // Home stretch colored cells
+  HOME_STRETCH.forEach((cells,pi)=>{
+    cells.forEach(([col,row],idx)=>{
+      ctx.fillStyle = COLORS[pi]+(idx===5?'ff':'55');
+      ctx.fillRect(col*cell+1,row*cell+1,cell-2,cell-2);
     });
   });
-  
-  // Outer path
-  if (boardSquares.length === 0) boardSquares = computeBoard();
-  
-  boardSquares.forEach((sq, i) => {
-    const isSafe = SAFE_SQUARES.includes(i);
-    ctx.fillStyle = isSafe ? '#f0c04033' : '#ffffff66';
-    ctx.strokeStyle = isSafe ? '#f0c040' : '#99999988';
-    ctx.lineWidth = isSafe ? 2 : 0.8;
-    ctx.beginPath();
-    ctx.roundRect(sq.x - cell * 0.45, sq.y - cell * 0.45, cell * 0.9, cell * 0.9, 4);
-    ctx.fill(); ctx.stroke();
-    
-    if (isSafe) {
-      ctx.fillStyle = '#f0c040';
-      ctx.font = `${cell * 0.4}px serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('⭐', sq.x, sq.y);
-    }
-  });
-  
-  // Draw pawns
-  if (gameState) drawPawns(ctx, cell);
-}
 
-function drawPawns(ctx, cell) {
-  if (!gameState || !gameState.pawns) return;
-  
-  const arrowCells = [
-    [[1,9],[1,8],[1,7],[1,6],[1,5],[1,4]],
-    [[5,1],[5,2],[5,3],[5,4],[5,5],[5,6]],
-    [[9,5],[9,6],[9,7],[9,8],[9,9],[9,10]],
-    [[5,9],[5,8],[5,7],[5,6],[5,5],[5,4]],
-  ];
-  
-  // Group pawns by position to offset
-  const posMap = {};
-  gameState.pawns.forEach(p => {
-    const key = `${p.player}_${p.pos}`;
-    if (!posMap[key]) posMap[key] = [];
-    posMap[key].push(p);
+  // Center
+  ctx.fillStyle='#f0c04033'; ctx.strokeStyle='#f0c040'; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.roundRect(cell*4,cell*4,cell*3,cell*3,8); ctx.fill(); ctx.stroke();
+  ctx.font=`${cell*.85}px serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText('🏁',cell*5.5,cell*5.5);
+
+  // Path squares
+  boardSq.forEach((sq,i)=>{
+    const safe = SAFE.has(i);
+    ctx.fillStyle = safe ? '#f0c04033' : '#ffffff55';
+    ctx.strokeStyle = safe ? '#f0c040' : '#99999966';
+    ctx.lineWidth = safe ? 2 : .8;
+    ctx.beginPath(); ctx.roundRect(sq.x-cell*.44,sq.y-cell*.44,cell*.88,cell*.88,4); ctx.fill(); ctx.stroke();
+    if(safe){ ctx.fillStyle='#f0c040'; ctx.font=`${cell*.38}px serif`; ctx.fillText('⭐',sq.x,sq.y); }
   });
-  
-  gameState.pawns.forEach(pawn => {
-    const player = gameState.players[pawn.player];
-    const color = PLAYER_COLORS[pawn.player];
+
+  if(!state) return;
+
+  // Pawns
+  const posCounts = {};
+  state.pawns.forEach(p=>{ const k=`${p.player}_${p.pos}_${p.finished?1:0}`; posCounts[k]=(posCounts[k]||0)+1; });
+  const posIdx = {};
+
+  state.pawns.forEach(pawn=>{
+    const pi = pawn.player;
+    const col = COLORS[pi];
     let px, py;
-    
-    if (pawn.finished) {
-      // In goal center
-      const centerX = BOARD_SIZE / 2 + ((pawn.player % 2 === 0 ? -1 : 1) * cell * 0.3);
-      const centerY = BOARD_SIZE / 2 + ((pawn.player < 2 ? -1 : 1) * cell * 0.3);
-      px = centerX; py = centerY;
-    } else if (pawn.pos < 0) {
-      // In home
-      const homeBaseX = [cell * 1.5, cell * 7.5, cell * 7.5, cell * 1.5];
-      const homeBaseY = [cell * 1.5, cell * 1.5, cell * 7.5, cell * 7.5];
-      const offX = [(pawn.id.split('_')[1] % 2) * cell, (pawn.id.split('_')[1] % 2) * cell];
-      const offY = [Math.floor(pawn.id.split('_')[1] / 2) * cell, Math.floor(pawn.id.split('_')[1] / 2) * cell];
-      const idx = parseInt(pawn.id.split('_')[1]);
-      px = homeBaseX[pawn.player] + (idx % 2) * cell * 0.9;
-      py = homeBaseY[pawn.player] + Math.floor(idx / 2) * cell * 0.9;
-    } else if (pawn.pos >= TOTAL_SQUARES) {
-      // Home stretch
-      const stretchPos = pawn.pos - TOTAL_SQUARES;
-      const arr = arrowCells[pawn.player];
-      if (stretchPos < arr.length) {
-        const [col, row] = arr[stretchPos];
-        px = col * cell + cell / 2;
-        py = row * cell + cell / 2;
-      } else {
-        px = BOARD_SIZE / 2; py = BOARD_SIZE / 2;
-      }
+
+    if(pawn.finished){
+      const cx=W/2, cy=W/2;
+      const offsets=[[-12,-12],[12,-12],[-12,12],[12,12]];
+      const idx=parseInt(pawn.id.split('_')[1]);
+      px=cx+offsets[idx][0]; py=cy+offsets[idx][1];
+    } else if(pawn.pos<0){
+      const hx=[cell*1.5,cell*7.5,cell*7.5,cell*1.5];
+      const hy=[cell*1.5,cell*1.5,cell*7.5,cell*7.5];
+      const idx=parseInt(pawn.id.split('_')[1]);
+      px=hx[pi]+(idx%2)*cell*.85; py=hy[pi]+Math.floor(idx/2)*cell*.85;
+    } else if(pawn.pos>=TOTAL){
+      const sp=pawn.pos-TOTAL;
+      const arr=HOME_STRETCH[pi];
+      if(sp<arr.length){ const [c,r]=arr[sp]; px=c*cell+cell*.5; py=r*cell+cell*.5; }
+      else { px=W/2; py=W/2; }
     } else {
-      // Main track
-      if (pawn.pos < boardSquares.length) {
-        px = boardSquares[pawn.pos].x;
-        py = boardSquares[pawn.pos].y;
-      } else { return; }
+      if(pawn.pos<boardSq.length){ px=boardSq[pawn.pos].x; py=boardSq[pawn.pos].y; }
+      else return;
     }
-    
-    // Offset if multiple pawns on same square
-    const key = `${pawn.player}_${pawn.pos}`;
-    const group = posMap[key];
-    const myIdx = group.indexOf(pawn);
-    if (group.length > 1) {
-      const offsets = [[-6,-6],[6,-6],[-6,6],[6,6]];
-      if (offsets[myIdx]) { px += offsets[myIdx][0]; py += offsets[myIdx][1]; }
-    }
-    
-    // Draw pawn circle
-    ctx.beginPath();
-    ctx.arc(px, py, 10, 0, Math.PI * 2);
-    ctx.fillStyle = color;
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.8)';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    
-    // Pawn number
-    ctx.fillStyle = '#fff';
-    ctx.font = 'bold 9px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(parseInt(pawn.id.split('_')[1]) + 1, px, py);
+
+    // Offset stacked
+    const k=`${pi}_${pawn.pos}_${pawn.finished?1:0}`;
+    const myOff=posIdx[k]||0; posIdx[k]=(posIdx[k]||0)+1;
+    const offs=[[-5,-5],[5,-5],[-5,5],[5,5]];
+    if(myOff>0&&offs[myOff]){ px+=offs[myOff][0]; py+=offs[myOff][1]; }
+
+    ctx.beginPath(); ctx.arc(px,py,10,0,Math.PI*2);
+    ctx.fillStyle=col; ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,.85)'; ctx.lineWidth=2; ctx.stroke();
+    ctx.fillStyle='#fff'; ctx.font='bold 8px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(parseInt(pawn.id.split('_')[1])+1,px,py);
   });
 }
 
-// ===== GAME UI RENDERING =====
-function renderGameUI() {
-  if (!gameState) return;
-  
-  const myPlayerIdx = gameState.players.findIndex(p => p.id === myId);
-  const currentPlayerIdx = gameState.turn % gameState.players.length;
-  const isMyTurn = myPlayerIdx === currentPlayerIdx;
-  const currentPlayer = gameState.players[currentPlayerIdx];
-  
-  // Players panel
-  let playersHtml = '';
-  gameState.players.forEach((p, i) => {
-    const isActive = i === currentPlayerIdx;
-    playersHtml += `
-      <div class="player-status ${isActive ? 'active-turn' : ''}" style="background: ${PLAYER_COLORS[i]}18; border-color: ${isActive ? PLAYER_COLORS[i] : 'transparent'}; margin-bottom: 6px; border-radius:8px; padding: 8px 12px;">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <span style="font-weight:700; color:${PLAYER_COLORS[i]}; font-size:0.9rem;">${p.id === myId ? '★ ' : ''}${p.name}</span>
-          <span class="coins">💰 ${p.coins}</span>
-        </div>
-        ${isActive ? '<div style="font-size:0.75rem; color:#f0c040; margin-top:2px;">← na tahu</div>' : ''}
-      </div>
-    `;
-  });
-  document.getElementById('players-panel').innerHTML = playersHtml;
-  
+// ===== RENDER UI =====
+function renderUI() {
+  if(!gs) return;
+  const myPi = gs.players.findIndex(p=>p.id===myId);
+  const curPi = gs.turn % gs.players.length;
+  const isMyTurn = myPi === curPi;
+
+  // Players
+  document.getElementById('players-panel').innerHTML = gs.players.map((p,i)=>{
+    const active = i===curPi;
+    return `<div class="player-status${active?' active-turn':''}" style="background:${COLORS[i]}18;border-color:${active?COLORS[i]:'transparent'};margin-bottom:6px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="font-weight:900;color:${COLORS[i]};font-size:.88rem">${p.id===myId?'★ ':''}${p.name}</span>
+        <span class="coins">💰${p.coins}</span>
+      </div>${active?`<div style="font-size:.72rem;color:#f0c040;margin-top:2px">◀ na tahu</div>`:''}
+    </div>`;
+  }).join('');
+
   // Turn indicator
-  const turnDiv = document.getElementById('turn-indicator-div');
-  if (isMyTurn && gameState.phase !== 'mini_game' && gameState.phase !== 'mini_bet' && gameState.phase !== 'end') {
-    turnDiv.innerHTML = `<div class="turn-indicator">🎯 Ty jsi na tahu!</div>`;
-  } else if (gameState.phase === 'end') {
-    turnDiv.innerHTML = `<div class="turn-indicator" style="background:#f0c040">🏆 Konec hry!</div>`;
+  const turnDiv = document.getElementById('turn-div');
+  if(gs.phase==='end'){
+    turnDiv.innerHTML=`<div class="turn-indicator" style="background:#c0392b;color:#fff">🏆 KONEC HRY</div>`;
+  } else if(isMyTurn && gs.phase!=='mini_game' && gs.phase!=='mini_bet'){
+    turnDiv.innerHTML=`<div class="turn-indicator">🎯 Tvůj tah!</div>`;
   } else {
-    turnDiv.innerHTML = `<div class="waiting-indicator">⏳ Tahá ${currentPlayer.name}...</div>`;
+    turnDiv.innerHTML=`<div class="waiting-indicator">⏳ Tahá ${gs.players[curPi].name}...</div>`;
   }
-  
-  // Dice section
-  const diceSection = document.getElementById('dice-section');
-  const moveSection = document.getElementById('move-section');
-  
-  if (isMyTurn && gameState.phase === 'bet_or_roll') {
-    diceSection.style.display = 'block';
-    moveSection.style.display = 'none';
-    selectedDiceBet = null;
-    document.querySelectorAll('.bet-opt').forEach(o => o.classList.remove('selected'));
-    document.getElementById('dice-el').textContent = '🎲';
-  } else if (isMyTurn && gameState.phase === 'move') {
-    diceSection.style.display = 'none';
-    moveSection.style.display = 'block';
-    renderMoveOptions();
+
+  // Dice / move
+  const diceEl = document.getElementById('dice-section');
+  const moveEl = document.getElementById('move-section');
+  if(isMyTurn && gs.phase==='bet_or_roll'){
+    diceEl.style.display='block'; moveEl.style.display='none';
+    selectedBet=null; document.querySelectorAll('.bet-opt').forEach(o=>o.classList.remove('selected'));
+    document.getElementById('dice-el').textContent='🎲';
+  } else if(isMyTurn && gs.phase==='move'){
+    diceEl.style.display='none'; moveEl.style.display='block'; renderMoveOptions();
   } else {
-    diceSection.style.display = 'none';
-    moveSection.style.display = 'none';
+    diceEl.style.display='none'; moveEl.style.display='none';
   }
-  
+
   // Log
-  const logEl = document.getElementById('game-log');
-  logEl.innerHTML = gameState.log.slice(-8).reverse().map(l => `<div class="log-entry">${l}</div>`).join('');
+  document.getElementById('game-log').innerHTML=(gs.log||[]).slice(-8).reverse().map(l=>`<div class="log-entry">${l}</div>`).join('');
 }
 
 function handleModals() {
-  if (!gameState) return;
-  
-  if (gameState.phase === 'mini_bet') {
-    showMiniBetModal();
-  } else if (gameState.phase === 'mini_game') {
-    showMiniGameModal();
-  } else if (gameState.phase === 'end') {
-    showWinnerModal();
-    closeMiniModal();
-    closeMiniBetModal();
-  } else {
-    closeMiniModal();
-    closeMiniBetModal();
-  }
+  if(!gs) return;
+  if(gs.phase==='mini_bet') showMiniBetModal();
+  else if(gs.phase==='mini_game') showMiniModal();
+  else if(gs.phase==='end'){ closeModal('modal-mini'); closeModal('modal-mini-bet'); showWinnerModal(); }
+  else { closeModal('modal-mini'); closeModal('modal-mini-bet'); }
 }
 
+function closeModal(id) { document.getElementById(id).style.display='none'; }
+
 // ===== DICE =====
-function selectDiceBet(n) {
-  selectedDiceBet = n;
-  document.querySelectorAll('.bet-opt').forEach(o => o.classList.remove('selected'));
-  document.querySelector(`.bet-opt:nth-child(${n})`).classList.add('selected');
+function selectBet(n) {
+  selectedBet=n;
+  document.querySelectorAll('.bet-opt').forEach((o,i)=>o.classList.toggle('selected',i+1===n));
 }
 
 async function rollDice() {
-  const myPlayerIdx = gameState.players.findIndex(p => p.id === myId);
-  const currentPlayerIdx = gameState.turn % gameState.players.length;
-  if (myPlayerIdx !== currentPlayerIdx) return;
-  
-  const diceEl = document.getElementById('dice-el');
-  diceEl.classList.add('rolling');
-  setTimeout(() => diceEl.classList.remove('rolling'), 500);
-  
-  const result = Math.floor(Math.random() * 6) + 1;
-  const faces = ['⚀','⚁','⚂','⚃','⚄','⚅'];
-  diceEl.textContent = faces[result - 1];
-  
-  // Reload fresh state
-  const gs = await storageLoad('game_' + roomCode);
-  if (!gs) return;
-  
-  gs.dice = result;
-  
-  // Process dice bets
-  const betAmount = parseInt(document.getElementById('bet-amount-input').value) || 20;
-  
-  if (selectedDiceBet !== null) {
-    const myP = gs.players[myPlayerIdx];
-    const betAmt = Math.min(betAmount, myP.coins);
-    gs.diceBets[myId] = { guess: selectedDiceBet, amount: betAmt };
-    myP.coins -= betAmt;
+  const myPi = gs.players.findIndex(p=>p.id===myId);
+  if(myPi !== gs.turn % gs.players.length) return;
+  const dEl = document.getElementById('dice-el');
+  dEl.classList.add('rolling'); setTimeout(()=>dEl.classList.remove('rolling'),500);
+  const result = Math.floor(Math.random()*6)+1;
+  dEl.textContent = DICE_FACES[result-1];
+
+  const snap = await gameRef(roomCode).once('value'); const state = snap.val();
+  if(!state) return;
+
+  state.dice = result;
+  const betAmt = Math.min(parseInt(document.getElementById('bet-amt').value)||20, state.players[myPi].coins);
+  let logEntry = `🎲 ${state.players[myPi].name} hodil ${result}`;
+
+  if(selectedBet!==null && betAmt>0){
+    state.players[myPi].coins -= betAmt;
+    if(selectedBet===result){
+      const win=betAmt*5; state.players[myPi].coins+=win;
+      logEntry+=` 💰 Uhodl! +${win}`;
+    } else { logEntry+=` 💸 Nesázet správně`; }
   }
-  
-  // Resolve others' bets on this roll
-  let logEntry = `🎲 ${gs.players[currentPlayerIdx].name} hodil ${result}`;
-  
-  Object.entries(gs.diceBets).forEach(([pid, bet]) => {
-    const pi = gs.players.findIndex(p => p.id === pid);
-    if (pi < 0 || pi === myPlayerIdx) return;
-    // Others can't bet on current player's roll in this turn (simplification)
-  });
-  
-  if (selectedDiceBet !== null && gs.diceBets[myId]) {
-    const bet = gs.diceBets[myId];
-    if (bet.guess === result) {
-      const win = bet.amount * 5;
-      gs.players[myPlayerIdx].coins += win;
-      logEntry += ` 💰 ${gs.players[myPlayerIdx].name} uhodl! +${win} mincí!`;
-    } else {
-      logEntry += ` 💸 ${gs.players[myPlayerIdx].name} nesázká správně`;
-    }
-    delete gs.diceBets[myId];
-  }
-  
-  gs.log.push(logEntry);
-  gs.phase = 'move';
-  gs.lastUpdate = Date.now();
-  
-  await storageSave('game_' + roomCode, gs);
-  gameState = gs;
-  renderGameUI();
-  drawBoard();
+
+  state.log = [...(state.log||[]), logEntry];
+  state.phase='move'; state.ts=Date.now();
+  await gameRef(roomCode).set(state);
 }
 
 // ===== MOVE =====
 function renderMoveOptions() {
-  const myPlayerIdx = gameState.players.findIndex(p => p.id === myId);
-  const myPawns = gameState.pawns.filter(p => p.player === myPlayerIdx && !p.finished);
-  const dice = gameState.dice;
-  
-  let html = '';
-  myPawns.forEach(pawn => {
-    const canStart = pawn.pos < 0 && dice === 6;
-    const canMove = pawn.pos >= 0;
-    if (canStart || canMove) {
-      const label = pawn.pos < 0 ? `Figurka ${parseInt(pawn.id.split('_')[1])+1}: Vyjít z domečku` : 
-                    `Figurka ${parseInt(pawn.id.split('_')[1])+1}: pos ${pawn.pos} → ${pawn.pos + dice}`;
-      html += `<button class="btn btn-gold btn-sm btn-full" style="margin-bottom:6px;" onclick="movePawn('${pawn.id}')">${label}</button>`;
+  const myPi = gs.players.findIndex(p=>p.id===myId);
+  const myPawns = gs.pawns.filter(p=>p.player===myPi && !p.finished);
+  const dice = gs.dice;
+  let html='';
+  myPawns.forEach(pawn=>{
+    const canStart = pawn.pos<0 && dice===6;
+    const canMove = pawn.pos>=0;
+    if(canStart||canMove){
+      const idx=parseInt(pawn.id.split('_')[1]);
+      const label = pawn.pos<0 ? `Figurka ${idx+1}: Vyjít` : `Figurka ${idx+1}: pole ${pawn.pos} → ${pawn.pos+dice}`;
+      html+=`<button class="btn btn-gold btn-sm btn-full" style="margin-bottom:6px" onclick="movePawn('${pawn.id}')">${label}</button>`;
     }
   });
-  
-  // Always allow skip
-  html += `<button class="btn btn-gray btn-sm btn-full" onclick="skipMove()">Přeskočit tah</button>`;
-  
-  document.getElementById('pawn-move-btns').innerHTML = html || '<div style="color:#aaa; font-size:0.85rem;">Žádný možný tah</div>';
+  html+=`<button class="btn btn-gray btn-sm btn-full" onclick="skipTurn()">Přeskočit tah</button>`;
+  document.getElementById('move-btns').innerHTML=html||`<button class="btn btn-gray btn-sm btn-full" onclick="skipTurn()">Žádný tah – přeskočit</button>`;
 }
 
 async function movePawn(pawnId) {
-  const gs = await storageLoad('game_' + roomCode);
-  if (!gs) return;
-  
-  const myPlayerIdx = gs.players.findIndex(p => p.id === myId);
-  const pawn = gs.pawns.find(p => p.id === pawnId);
-  if (!pawn || pawn.player !== myPlayerIdx) return;
-  
-  const dice = gs.dice;
-  let logEntry = '';
-  
-  if (pawn.pos < 0 && dice === 6) {
-    // Start position
-    const startPositions = [0, 13, 26, 39];
-    pawn.pos = startPositions[pawn.player];
-    logEntry = `🏃 ${gs.players[myPlayerIdx].name} vychází figurkou ${parseInt(pawnId.split('_')[1])+1}`;
-  } else if (pawn.pos >= 0) {
-    const newPos = pawn.pos + dice;
-    // Check if reaches finish
-    if (newPos >= TOTAL_SQUARES + HOME_STRETCH) {
-      pawn.finished = true;
-      pawn.pos = TOTAL_SQUARES + HOME_STRETCH;
-      logEntry = `🏁 ${gs.players[myPlayerIdx].name} dostala figurku do cíle!`;
-      
-      // Check win
-      const myFinished = gs.pawns.filter(p => p.player === myPlayerIdx && p.finished).length;
-      if (myFinished >= PIECES_PER_PLAYER) {
-        gs.phase = 'end';
-        gs.winner = myPlayerIdx;
-        gs.log.push(`🏆 ${gs.players[myPlayerIdx].name} vyhrál hru!`);
-        gs.lastUpdate = Date.now();
-        await storageSave('game_' + roomCode, gs);
-        gameState = gs;
-        renderGameUI();
-        drawBoard();
-        showWinnerModal();
-        return;
+  const snap = await gameRef(roomCode).once('value'); const state = snap.val();
+  if(!state) return;
+  const myPi = state.players.findIndex(p=>p.id===myId);
+  const pawn = state.pawns.find(p=>p.id===pawnId);
+  if(!pawn||pawn.player!==myPi) return;
+
+  const dice=state.dice;
+  let logEntry='';
+
+  if(pawn.pos<0 && dice===6){
+    pawn.pos=START_POS[pawn.player];
+    logEntry=`🏃 ${state.players[myPi].name} vychází figurkou ${parseInt(pawnId.split('_')[1])+1}`;
+  } else if(pawn.pos>=0){
+    const newPos=pawn.pos+dice;
+    if(newPos>=TOTAL+6){
+      pawn.finished=true; pawn.pos=TOTAL+6;
+      logEntry=`🏁 ${state.players[myPi].name} dostala figurku do cíle!`;
+      const finCount=state.pawns.filter(p=>p.player===myPi&&p.finished).length;
+      if(finCount>=PIECES){
+        state.phase='end'; state.winner=myPi;
+        state.log=[...(state.log||[]),logEntry,`🏆 ${state.players[myPi].name} VYHRÁL HRU!`];
+        state.ts=Date.now();
+        await gameRef(roomCode).set(state); return;
       }
     } else {
-      pawn.pos = newPos;
-      logEntry = `👣 ${gs.players[myPlayerIdx].name} táhne na pole ${newPos}`;
-      
+      pawn.pos=newPos;
+      logEntry=`👣 ${state.players[myPi].name} na pole ${newPos}`;
       // Kick enemy pawns
-      gs.pawns.forEach(ep => {
-        if (ep.player !== myPlayerIdx && ep.pos === newPos && ep.pos >= 0 && !SAFE_SQUARES.includes(newPos % TOTAL_SQUARES)) {
-          ep.pos = -1;
-          gs.players[ep.player].coins = Math.max(0, gs.players[ep.player].coins - 20);
-          logEntry += ` 💥 Kopnul figurku ${gs.players[ep.player].name}!`;
-          gs.log.push(`😱 ${gs.players[ep.player].name} musel zpět do domečku!`);
+      state.pawns.forEach(ep=>{
+        if(ep.player!==myPi && ep.pos===newPos && ep.pos>=0 && !SAFE.has(newPos%TOTAL)){
+          ep.pos=-1;
+          state.players[ep.player].coins=Math.max(0,state.players[ep.player].coins-20);
+          logEntry+=` 💥 Kopnul ${state.players[ep.player].name}!`;
         }
       });
     }
   }
-  
-  gs.log.push(logEntry);
-  
-  // Check for mini game trigger (random 30% chance + special squares)
-  const miniTriggerSquares = [5, 10, 18, 23, 31, 36, 44, 49];
-  const shouldTriggerMini = miniTriggerSquares.includes(pawn.pos % TOTAL_SQUARES) || Math.random() < 0.25;
-  
-  if (shouldTriggerMini && gs.phase !== 'end') {
-    const minis = ['russian_roulette', 'blackjack', 'darts', 'wheel'];
-    gs.miniGame = minis[Math.floor(Math.random() * minis.length)];
-    gs.miniTrigger = myPlayerIdx;
-    gs.miniData = null;
-    gs.miniWinner = null;
-    gs.phase = 'mini_bet';
-    gs.miniPot = 0;
-    gs.miniPlayerBets = {};
-    gs.log.push(`🎰 MINIHRA spuštěna: ${getMiniName(gs.miniGame)}! Každý musí vsadit!`);
-  } else {
-    // Next turn
-    gs.turn++;
-    gs.phase = 'bet_or_roll';
-    gs.dice = null;
+
+  state.log=[...(state.log||[]),logEntry];
+
+  // Mini game trigger
+  const sqMod = pawn.pos>=0 ? pawn.pos%TOTAL : -1;
+  const triggerMini = MINI_TRIGGER_SQUARES.has(sqMod) || Math.random()<0.28;
+
+  if(triggerMini && state.phase!=='end'){
+    const minis=['russian_roulette','blackjack','darts','wheel'];
+    state.miniGame=minis[Math.floor(Math.random()*minis.length)];
+    state.miniTrigger=myPi; state.miniData=null;
+    state.miniWinner=null; state.phase='mini_bet';
+    state.miniPlayerBets={}; state.miniPot=0;
+    state.log=[...(state.log||[]),`🎰 MINIHRA: ${MINI_NAMES[state.miniGame]}! Vsaďte!`];
+  } else if(state.phase!=='end'){
+    nextTurn(state);
   }
-  
-  gs.lastUpdate = Date.now();
-  await storageSave('game_' + roomCode, gs);
-  gameState = gs;
-  renderGameUI();
-  drawBoard();
-  handleModals();
+
+  state.ts=Date.now();
+  await gameRef(roomCode).set(state);
 }
 
-async function skipMove() {
-  const gs = await storageLoad('game_' + roomCode);
-  if (!gs) return;
-  gs.turn++;
-  gs.phase = 'bet_or_roll';
-  gs.dice = null;
-  gs.log.push(`⏭️ ${gs.players[gs.turn % gs.players.length === 0 ? gs.players.length - 1 : (gs.turn % gs.players.length) - 1].name} přeskočil tah`);
-  gs.lastUpdate = Date.now();
-  await storageSave('game_' + roomCode, gs);
-  gameState = gs;
-  renderGameUI();
-  drawBoard();
+async function skipTurn() {
+  const snap = await gameRef(roomCode).once('value'); const state=snap.val(); if(!state) return;
+  nextTurn(state); state.ts=Date.now(); await gameRef(roomCode).set(state);
 }
 
-// ===== MINI GAMES =====
-function getMiniName(key) {
-  const names = { russian_roulette: '🔫 Ruská Ruleta', blackjack: '🃏 Blackjack', darts: '🎯 Šipky', wheel: '🎡 Kolo Osudu' };
-  return names[key] || key;
-}
+function nextTurn(state){ state.turn++; state.phase='bet_or_roll'; state.dice=null; }
 
+// ===== MINI BET MODAL =====
 function showMiniBetModal() {
-  if (!gameState) return;
-  const myPlayerIdx = gameState.players.findIndex(p => p.id === myId);
-  const alreadyBet = gameState.miniPlayerBets && gameState.miniPlayerBets[myId] !== undefined;
-  
-  let html = `
-    <h2>${getMiniName(gameState.miniGame)}</h2>
-    <p style="color:#aaa; font-size:0.9rem; margin: 8px 0 16px;">Vsaď na vítěze minihry!</p>
-    <div style="font-size:0.85rem; color:#aaa; margin-bottom:12px;">Vsazeno: ${Object.keys(gameState.miniPlayerBets || {}).length} / ${gameState.players.length} hráčů</div>
-  `;
-  
-  if (alreadyBet) {
-    html += `<div style="color:#2ecc71; font-size:1rem; margin:16px 0;">✅ Vsadil jsi! Čekáme na ostatní...</div>`;
-    const allBet = Object.keys(gameState.miniPlayerBets || {}).length >= gameState.players.length;
-    if (allBet && myPlayerIdx === gameState.miniTrigger) {
-      html += `<button class="btn btn-gold" onclick="startMiniGame()">▶️ Spustit minihru!</button>`;
+  if(!gs||gs.phase!=='mini_bet') return;
+  const myPi = gs.players.findIndex(p=>p.id===myId);
+  const already = gs.miniPlayerBets && gs.miniPlayerBets[myId]!==undefined;
+  const allBet = Object.keys(gs.miniPlayerBets||{}).length >= gs.players.length;
+
+  let html=`<h2>${MINI_NAMES[gs.miniGame]}</h2>
+  <p style="color:#888;font-size:.88rem;margin-bottom:14px">Vsaď na vítěze minihry!</p>
+  <div style="font-size:.82rem;color:#888;margin-bottom:10px">Vsazeno: ${Object.keys(gs.miniPlayerBets||{}).length}/${gs.players.length}</div>`;
+
+  if(already){
+    html+=`<div style="color:#27ae60;margin:14px 0;font-size:1rem">✅ Vsazeno! Čekáme na ostatní...</div>`;
+    if(allBet && myPi===gs.miniTrigger){
+      html+=`<button class="btn btn-gold" onclick="launchMini()">▶️ Spustit minihru!</button>`;
     }
   } else {
-    html += `<div style="font-size:0.85rem; color:#f0c040; margin-bottom:12px;">Vyber vítěze:</div>
-    <div class="mini-options">`;
-    gameState.players.forEach((p, i) => {
-      html += `<button class="btn btn-gray" style="background:${PLAYER_COLORS[i]}22; border:1px solid ${PLAYER_COLORS[i]};" onclick="placeMinibet(${i})">${p.name}</button>`;
+    html+=`<div style="font-size:.82rem;color:#f0c040;margin-bottom:10px">Vyber vítěze:</div><div class="mini-bet-grid">`;
+    gs.players.forEach((p,i)=>{
+      html+=`<button class="btn btn-gray" style="background:${COLORS[i]}22;border:1px solid ${COLORS[i]}" onclick="placeMinibet(${i})">${p.name}</button>`;
     });
-    html += `</div>
-    <div style="margin-top:12px; font-size:0.85rem;">
-      Sázka: <input type="number" id="mini-bet-input" min="10" max="300" value="50" style="width:80px; display:inline; padding:4px 8px; font-size:0.85rem;"> mincí
-    </div>`;
+    html+=`</div><div style="margin-top:10px;font-size:.82rem">Sázka: <input type="number" id="mb-amt" min="10" max="300" value="50" style="width:75px;display:inline;padding:4px 8px;font-size:.82rem;margin-bottom:0"> mincí</div>`;
   }
-  
-  document.getElementById('mini-bet-content').innerHTML = html;
-  document.getElementById('mini-bet-modal').style.display = 'flex';
+
+  document.getElementById('mini-bet-body').innerHTML=html;
+  document.getElementById('modal-mini-bet').style.display='flex';
 }
 
-async function placeMinibet(targetPlayerIdx) {
-  const amount = parseInt(document.getElementById('mini-bet-input').value) || 50;
-  const myPlayerIdx = gameState.players.findIndex(p => p.id === myId);
-  
-  const gs = await storageLoad('game_' + roomCode);
-  if (!gs) return;
-  
-  const realAmount = Math.min(amount, gs.players[myPlayerIdx].coins);
-  gs.players[myPlayerIdx].coins -= realAmount;
-  if (!gs.miniPlayerBets) gs.miniPlayerBets = {};
-  gs.miniPlayerBets[myId] = { target: targetPlayerIdx, amount: realAmount };
-  gs.miniPot = (gs.miniPot || 0) + realAmount;
-  gs.log.push(`💸 ${gs.players[myPlayerIdx].name} vsadil ${realAmount} mincí na ${gs.players[targetPlayerIdx].name}`);
-  gs.lastUpdate = Date.now();
-  
-  await storageSave('game_' + roomCode, gs);
-  gameState = gs;
-  showMiniBetModal();
+async function placeMinibet(targetPi) {
+  const amt=parseInt(document.getElementById('mb-amt').value)||50;
+  const snap=await gameRef(roomCode).once('value'); const state=snap.val(); if(!state) return;
+  const myPi=state.players.findIndex(p=>p.id===myId);
+  const real=Math.min(amt,state.players[myPi].coins);
+  state.players[myPi].coins-=real;
+  if(!state.miniPlayerBets) state.miniPlayerBets={};
+  state.miniPlayerBets[myId]={target:targetPi,amount:real};
+  state.miniPot=(state.miniPot||0)+real;
+  state.log=[...(state.log||[]),`💸 ${state.players[myPi].name} vsadil ${real} na ${state.players[targetPi].name}`];
+  state.ts=Date.now();
+  await gameRef(roomCode).set(state);
 }
 
-async function startMiniGame() {
-  const gs = await storageLoad('game_' + roomCode);
-  if (!gs) return;
-  gs.phase = 'mini_game';
-  gs.miniData = generateMiniData(gs.miniGame);
-  gs.lastUpdate = Date.now();
-  await storageSave('game_' + roomCode, gs);
-  gameState = gs;
-  closeMiniBetModal();
-  showMiniGameModal();
+async function launchMini() {
+  const snap=await gameRef(roomCode).once('value'); const state=snap.val(); if(!state) return;
+  state.miniData=generateMiniData(state.miniGame);
+  state.phase='mini_game'; state.ts=Date.now();
+  await gameRef(roomCode).set(state);
 }
 
-function generateMiniData(mini) {
-  if (mini === 'russian_roulette') {
-    const bullet = Math.floor(Math.random() * 6);
-    return { bullet, revealed: [] };
+function generateMiniData(mini){
+  if(mini==='russian_roulette') return {bullet:Math.floor(Math.random()*6),revealed:[]};
+  if(mini==='blackjack'){
+    const deck=[];
+    ['♠','♥','♦','♣'].forEach(s=>['A','2','3','4','5','6','7','8','9','10','J','Q','K'].forEach(v=>deck.push({s,v})));
+    for(let i=deck.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[deck[i],deck[j]]=[deck[j],deck[i]];}
+    return {deck:deck.slice(0,20),hands:{},result:null,houseScore:null};
   }
-  if (mini === 'blackjack') {
-    const deck = [];
-    ['♠','♥','♦','♣'].forEach(s => {
-      ['A','2','3','4','5','6','7','8','9','10','J','Q','K'].forEach(v => deck.push({ s, v }));
-    });
-    for (let i = deck.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [deck[i], deck[j]] = [deck[j], deck[i]];
-    }
-    return { deck: deck.slice(0, 20), hands: {} };
-  }
-  if (mini === 'darts') {
-    // pre-generate targets for each player
-    const targets = {};
-    return { targets, scores: {}, revealed: false };
-  }
-  if (mini === 'wheel') {
-    const segments = ['💰 +100', '💸 -50', '🎲 Random', '🔄 Swap', '💀 -all', '⭐ +200', '🃏 Steal', '🎁 +50'];
-    const idx = Math.floor(Math.random() * segments.length);
-    return { result: segments[idx], idx, revealed: false };
+  if(mini==='darts') return {scores:{},revealed:false};
+  if(mini==='wheel'){
+    const segs=['💰 +100','💸 -50','🎲 Random','🔄 Swap koin','💀 Vše pryč','⭐ +200','🃏 Ukradni 50','🎁 +75'];
+    const idx=Math.floor(Math.random()*segs.length);
+    return {result:segs[idx],idx,revealed:false};
   }
   return {};
 }
 
-function getCardValue(card) {
-  if (['J','Q','K'].includes(card.v)) return 10;
-  if (card.v === 'A') return 11;
-  return parseInt(card.v);
+// ===== MINI GAME MODAL =====
+function showMiniModal() {
+  if(!gs||gs.phase!=='mini_game'||!gs.miniData) return;
+  const myPi=gs.players.findIndex(p=>p.id===myId);
+  let html='';
+  if(gs.miniGame==='russian_roulette') html=renderRR(myPi);
+  else if(gs.miniGame==='blackjack') html=renderBJ(myPi);
+  else if(gs.miniGame==='darts') html=renderDarts(myPi);
+  else if(gs.miniGame==='wheel') html=renderWheel(myPi);
+  document.getElementById('mini-body').innerHTML=html;
+  document.getElementById('modal-mini').style.display='flex';
+  if(gs.miniGame==='darts'&&!gs.miniData.scores[myId]) startDartMeter();
 }
 
-function showMiniGameModal() {
-  if (!gameState || gameState.phase !== 'mini_game') return;
-  const myPlayerIdx = gameState.players.findIndex(p => p.id === myId);
-  
-  let html = `<h2>${getMiniName(gameState.miniGame)}</h2>`;
-  
-  if (gameState.miniGame === 'russian_roulette') {
-    html += renderRR(myPlayerIdx);
-  } else if (gameState.miniGame === 'blackjack') {
-    html += renderBJ(myPlayerIdx);
-  } else if (gameState.miniGame === 'darts') {
-    html += renderDarts(myPlayerIdx);
-  } else if (gameState.miniGame === 'wheel') {
-    html += renderWheel(myPlayerIdx);
-  }
-  
-  document.getElementById('mini-content').innerHTML = html;
-  document.getElementById('mini-modal').style.display = 'flex';
-  
-  if (gameState.miniGame === 'wheel' && !gameState.miniData.revealed) {
-    if (myPlayerIdx === gameState.miniTrigger) {
-      setTimeout(() => revealWheel(), 1500);
-    }
-  }
-}
+// Russian Roulette
+function renderRR(myPi){
+  const d=gs.miniData, trig=gs.miniTrigger;
+  const chambers=Array(6).fill('').map((_,i)=>d.revealed&&d.revealed.includes(i)?(i===d.bullet?'bullet':'safe'):'');
+  const isMe=myPi===trig;
+  let html=`<h2>🔫 Ruská Ruleta</h2>
+  <div style="color:#888;font-size:.85rem;margin-bottom:8px">Hráč: <b style="color:${COLORS[trig]}">${gs.players[trig].name}</b></div>
+  <div style="font-size:3rem;margin:10px 0">🔫</div>
+  <div class="rr-chambers">${chambers.map((s,i)=>`<div class="chamber ${s}">${s==='bullet'?'💀':s==='safe'?'✅':'?'}</div>`).join('')}</div>`;
 
-function renderRR(myPlayerIdx) {
-  const data = gameState.miniData;
-  const chambers = Array(6).fill(false).map((_, i) => data.revealed && data.revealed.includes(i) ? (i === data.bullet ? 'bullet' : 'safe') : '');
-  
-  const isMyTurn = gameState.miniTrigger === myPlayerIdx;
-  const triggered = gameState.players[gameState.miniTrigger];
-  
-  let html = `
-    <div style="color:#aaa; font-size:0.85rem; margin-bottom:8px;">Hráč na tahu: <b style="color:${PLAYER_COLORS[gameState.miniTrigger]}">${triggered.name}</b></div>
-    <div class="roulette-gun">🔫</div>
-    <div class="rr-chambers">
-  `;
-  
-  chambers.forEach((state, i) => {
-    html += `<div class="chamber ${state}">${state === 'bullet' ? '💀' : state === 'safe' ? '✅' : '?'}</div>`;
-  });
-  
-  html += `</div>`;
-  
-  if (data.revealed && data.revealed.length > 0) {
-    const lastRevealed = data.revealed[data.revealed.length - 1];
-    if (lastRevealed === data.bullet) {
-      html += `<div style="color:#e74c3c; font-size:1.2rem; font-weight:700; margin:12px 0;">💥 BANG! ${triggered.name} dostal kuli!</div>`;
-      html += `<button class="btn btn-gold" onclick="finishMini('rr_lose', ${gameState.miniTrigger})">Potvrdit</button>`;
-    } else {
-      html += `<div style="color:#2ecc71; font-size:1rem; margin:12px 0;">😮‍💨 Prázdná! Přežil!</div>`;
-      if (data.revealed.length < 6 && isMyTurn) {
-        html += `<button class="btn btn-red" onclick="pullTrigger()">🔫 Stiskni</button>`;
-      }
-    }
-  } else if (isMyTurn) {
-    html += `<button class="btn btn-red" style="font-size:1.1rem; padding:14px 28px;" onclick="pullTrigger()">🔫 Stiskni spoušť!</button>`;
+  const lastRev=d.revealed&&d.revealed.length>0?d.revealed[d.revealed.length-1]:null;
+  if(lastRev!==null&&lastRev===d.bullet){
+    html+=`<div style="color:#e74c3c;font-size:1.3rem;font-weight:900;margin:12px 0">💥 BANG! ${gs.players[trig].name} dostal kuli!</div>`;
+    if(isMe) html+=`<button class="btn btn-red" onclick="finishRR('lose')">Potvrdit</button>`;
+  } else if(lastRev!==null){
+    html+=`<div style="color:#27ae60;font-size:1rem;margin:12px 0">😮‍💨 Prázdná komora! Přežil!</div>`;
+    if(isMe&&d.revealed.length<6) html+=`<button class="btn btn-red" style="margin-top:8px" onclick="rrPull()">🔫 Znovu stisknout</button>`;
+    else if(isMe) html+=`<button class="btn btn-gold" onclick="finishRR('survive')">Přežil jsem!</button>`;
+  } else if(isMe){
+    html+=`<button class="btn btn-red" style="font-size:1.1rem;padding:14px 28px;margin-top:12px" onclick="rrPull()">🔫 Stiskni spoušť!</button>`;
   } else {
-    html += `<div style="color:#aaa;">Čekáš na ${triggered.name}...</div>`;
+    html+=`<div style="color:#888;margin-top:12px">Čekáš na ${gs.players[trig].name}...</div>`;
   }
-  
   return html;
 }
 
-async function pullTrigger() {
-  const gs = await storageLoad('game_' + roomCode);
-  if (!gs) return;
-  
-  const data = gs.miniData;
-  const next = (data.revealed || []).length;
-  if (!data.revealed) data.revealed = [];
-  data.revealed.push(next);
-  
-  gs.lastUpdate = Date.now();
-  await storageSave('game_' + roomCode, gs);
-  gameState = gs;
-  showMiniGameModal();
+async function rrPull(){
+  const snap=await gameRef(roomCode).once('value'); const state=snap.val(); if(!state) return;
+  const d=state.miniData;
+  if(!d.revealed) d.revealed=[];
+  d.revealed.push(d.revealed.length);
+  state.ts=Date.now(); await gameRef(roomCode).set(state);
 }
 
-function renderBJ(myPlayerIdx) {
-  const data = gameState.miniData;
-  const isMyTurn = gameState.miniTrigger === myPlayerIdx;
-  const triggered = gameState.players[gameState.miniTrigger];
-  
-  const hands = data.hands || {};
-  const myHand = hands[myId] || [];
-  const myScore = myHand.reduce((s, c) => s + getCardValue(c), 0);
-  
-  let html = `
-    <div style="color:#aaa; font-size:0.85rem; margin-bottom:8px;">Hráč hraje: <b style="color:${PLAYER_COLORS[gameState.miniTrigger]}">${triggered.name}</b> vs. dům</div>
-  `;
-  
-  if (!isMyTurn) {
-    html += `<div style="color:#aaa; margin:20px 0;">Čekáš na výsledek...</div>`;
-    if (data.result !== undefined) {
-      html += `<div style="font-size:1.2rem; color:#f0c040; font-weight:700; margin:12px 0;">
-        ${data.result === 'win' ? '🏆 Výhra!' : data.result === 'bust' ? '💥 Bust!' : '🤝 Push'}
-      </div>`;
-      html += `<button class="btn btn-gold" onclick="finishMini('bj_${data.result}', ${gameState.miniTrigger})">Potvrdit výsledek</button>`;
-    }
+async function finishRR(outcome){
+  const snap=await gameRef(roomCode).once('value'); const state=snap.val(); if(!state) return;
+  const pi=state.miniTrigger;
+  if(outcome==='lose'){ state.players[pi].coins=Math.max(0,state.players[pi].coins-80); state.log=[...(state.log||[]),`💥 ${state.players[pi].name} dostal kuli! -80 mincí`]; }
+  else { state.players[pi].coins+=40; state.log=[...(state.log||[]),`😎 ${state.players[pi].name} přežil! +40 mincí`]; }
+  await resolveMini(state, pi);
+}
+
+// Blackjack
+function cardVal(c){ if(['J','Q','K'].includes(c.v)) return 10; if(c.v==='A') return 11; return parseInt(c.v); }
+function renderBJ(myPi){
+  const d=gs.miniData, trig=gs.miniTrigger, isMe=myPi===trig;
+  const hands=d.hands||{}, myHand=hands[myId]||[];
+  const myScore=myHand.reduce((s,c)=>s+cardVal(c),0);
+  let html=`<h2>🃏 Blackjack</h2><div style="color:#888;font-size:.85rem;margin-bottom:10px">Hráč: <b style="color:${COLORS[trig]}">${gs.players[trig].name}</b></div>`;
+  if(!isMe){
+    html+=`<div style="color:#888;margin:20px 0">Čekáš na výsledek...</div>`;
+    if(d.result) html+=`<div style="font-size:1.3rem;font-weight:900;color:#f0c040;margin:12px 0">${d.result==='win'?'🏆 Výhra! +60':'d.result==='push'?'🤝 Push':'💥 Prohra! -40'}</div>`;
     return html;
   }
-  
-  // Show cards
-  html += `<div class="cards-row">`;
-  myHand.forEach(c => {
-    const isRed = c.s === '♥' || c.s === '♦';
-    html += `<div class="playing-card ${isRed ? 'red' : ''}">${c.v}${c.s}</div>`;
-  });
-  if (myHand.length === 0) {
-    html += `<div class="playing-card face-down">?</div><div class="playing-card face-down">?</div>`;
-  }
-  html += `</div>`;
-  
-  html += `<div style="font-size:1.2rem; font-weight:700; margin:8px 0; color:${myScore > 21 ? '#e74c3c' : '#eee'}">Součet: ${myScore}</div>`;
-  
-  if (myHand.length === 0) {
-    html += `<button class="btn btn-gold" onclick="bjDeal()">🃏 Rozdat karty</button>`;
-  } else if (myScore <= 21) {
-    html += `<div style="display:flex; gap:10px; justify-content:center; margin-top:8px;">
-      <button class="btn btn-green" onclick="bjHit()">HIT +1</button>
-      <button class="btn btn-red" onclick="bjStand()">STAND</button>
-    </div>`;
-  } else {
-    html += `<div style="color:#e74c3c; font-size:1.1rem; margin:12px 0;">💥 Bust! Přes 21!</div>`;
-    html += `<button class="btn btn-gold" onclick="finishMini('bj_bust', ${gameState.miniTrigger})">Potvrdit</button>`;
-  }
-  
+  html+=`<div class="cards-row">`;
+  if(myHand.length===0){ html+=`<div class="playing-card face-down">?</div><div class="playing-card face-down">?</div>`; }
+  else { myHand.forEach(c=>{ const red=c.s==='♥'||c.s==='♦'; html+=`<div class="playing-card${red?' red':''}">${c.v}<div class="suit">${c.s}</div></div>`; }); }
+  html+=`</div><div style="font-size:1.2rem;font-weight:900;margin:8px 0;color:${myScore>21?'#e74c3c':'#eee'}">Součet: ${myScore||'?'}</div>`;
+  if(myHand.length===0) html+=`<button class="btn btn-gold" onclick="bjDeal()">🃏 Rozdat!</button>`;
+  else if(myScore<=21) html+=`<div style="display:flex;gap:10px;justify-content:center;margin-top:8px"><button class="btn btn-green" onclick="bjHit()">HIT +1</button><button class="btn btn-red" onclick="bjStand()">STAND</button></div>`;
+  else { html+=`<div style="color:#e74c3c;font-size:1.1rem;margin:12px 0">💥 Bust!</div><button class="btn btn-gold" onclick="finishBJ('bust')">Potvrdit</button>`; }
   return html;
 }
 
-async function bjDeal() {
-  const gs = await storageLoad('game_' + roomCode);
-  if (!gs) return;
-  const data = gs.miniData;
-  if (!data.hands) data.hands = {};
-  data.hands[myId] = [data.deck.pop(), data.deck.pop()];
-  gs.lastUpdate = Date.now();
-  await storageSave('game_' + roomCode, gs);
-  gameState = gs;
-  showMiniGameModal();
+async function bjDeal(){
+  const snap=await gameRef(roomCode).once('value'); const state=snap.val(); if(!state) return;
+  const d=state.miniData; if(!d.hands) d.hands={};
+  d.hands[myId]=[d.deck.pop(),d.deck.pop()];
+  state.ts=Date.now(); await gameRef(roomCode).set(state);
+}
+async function bjHit(){
+  const snap=await gameRef(roomCode).once('value'); const state=snap.val(); if(!state) return;
+  state.miniData.hands[myId].push(state.miniData.deck.pop());
+  state.ts=Date.now(); await gameRef(roomCode).set(state);
+}
+async function bjStand(){
+  const snap=await gameRef(roomCode).once('value'); const state=snap.val(); if(!state) return;
+  const d=state.miniData, hand=d.hands[myId]||[];
+  const myScore=hand.reduce((s,c)=>s+cardVal(c),0);
+  const houseHand=[d.deck.pop(),d.deck.pop()];
+  let hs=houseHand.reduce((s,c)=>s+cardVal(c),0);
+  while(hs<17&&d.deck.length>0){ houseHand.push(d.deck.pop()); hs=houseHand.reduce((s,c)=>s+cardVal(c),0); }
+  d.result=hs>21||myScore>hs?'win':myScore===hs?'push':'lose';
+  d.houseScore=hs; state.ts=Date.now(); await gameRef(roomCode).set(state);
+}
+async function finishBJ(type){
+  const snap=await gameRef(roomCode).once('value'); const state=snap.val(); if(!state) return;
+  const pi=state.miniTrigger;
+  const d=state.miniData.result||type;
+  if(d==='win'){ state.players[pi].coins+=60; state.log=[...(state.log||[]),`🃏 ${state.players[pi].name} vyhrál Blackjack! +60`]; }
+  else if(d==='bust'||d==='lose'){ state.players[pi].coins=Math.max(0,state.players[pi].coins-40); state.log=[...(state.log||[]),`💥 ${state.players[pi].name} prohrál BJ -40`]; }
+  else { state.log=[...(state.log||[]),`🤝 Push!`]; }
+  await resolveMini(state, pi);
 }
 
-async function bjHit() {
-  const gs = await storageLoad('game_' + roomCode);
-  if (!gs) return;
-  const data = gs.miniData;
-  data.hands[myId].push(data.deck.pop());
-  gs.lastUpdate = Date.now();
-  await storageSave('game_' + roomCode, gs);
-  gameState = gs;
-  showMiniGameModal();
-}
-
-async function bjStand() {
-  const gs = await storageLoad('game_' + roomCode);
-  if (!gs) return;
-  const data = gs.miniData;
-  const myHand = data.hands[myId] || [];
-  const myScore = myHand.reduce((s, c) => s + getCardValue(c), 0);
-  // House draws to 17
-  const houseHand = [data.deck.pop(), data.deck.pop()];
-  let houseScore = houseHand.reduce((s, c) => s + getCardValue(c), 0);
-  while (houseScore < 17 && data.deck.length > 0) {
-    houseHand.push(data.deck.pop());
-    houseScore = houseHand.reduce((s, c) => s + getCardValue(c), 0);
-  }
-  
-  let result = 'lose';
-  if (houseScore > 21 || myScore > houseScore) result = 'win';
-  else if (myScore === houseScore) result = 'push';
-  
-  data.result = result;
-  data.houseScore = houseScore;
-  gs.lastUpdate = Date.now();
-  await storageSave('game_' + roomCode, gs);
-  gameState = gs;
-  showMiniGameModal();
-}
-
-function renderDarts(myPlayerIdx) {
-  const data = gameState.miniData;
-  const isMyTurn = gameState.miniTrigger === myPlayerIdx;
-  const triggered = gameState.players[gameState.miniTrigger];
-  const myScore = data.scores && data.scores[myId] !== undefined ? data.scores[myId] : null;
-  
-  let html = `
-    <div style="color:#aaa; font-size:0.85rem; margin-bottom:8px;">Šipky! Hráč: <b style="color:${PLAYER_COLORS[gameState.miniTrigger]}">${triggered.name}</b></div>
-    <div class="dartboard">🎯</div>
-  `;
-  
-  if (myScore !== null) {
-    html += `<div style="font-size:1.3rem; font-weight:700; color:#f0c040; margin:8px 0;">Tvůj hod: ${myScore} bodů</div>`;
-    
-    // Show all scores
-    const totalScores = Object.entries(data.scores || {}).length;
-    if (totalScores >= gameState.players.length) {
-      const sorted = Object.entries(data.scores).sort((a, b) => b[1] - a[1]);
-      const winnerPid = sorted[0][0];
-      const winnerPi = gameState.players.findIndex(p => p.id === winnerPid);
-      html += `<div style="margin:12px 0;">`;
-      sorted.forEach(([pid, score]) => {
-        const pi = gameState.players.findIndex(p => p.id === pid);
-        html += `<div style="color:${PLAYER_COLORS[pi] || '#eee'}; margin:4px 0;">${gameState.players[pi]?.name}: ${score}b</div>`;
-      });
-      html += `</div>`;
-      if (isMyTurn || myPlayerIdx === 0) {
-        html += `<button class="btn btn-gold" onclick="finishMini('darts', ${winnerPi})">🏆 Výsledky!</button>`;
-      }
+// Darts
+function renderDarts(myPi){
+  const d=gs.miniData, trig=gs.miniTrigger, isMe=myPi===trig;
+  const myScore=d.scores&&d.scores[myId]!==undefined?d.scores[myId]:null;
+  const allDone=d.scores&&Object.keys(d.scores).length>=gs.players.length;
+  let html=`<h2>🎯 Šipky</h2><div style="color:#888;font-size:.85rem;margin-bottom:8px">Každý hodí – nejlepší výsledek vyhraje!</div><div style="font-size:3.5rem;margin:8px 0">🎯</div>`;
+  if(myScore!==null){
+    html+=`<div style="font-size:1.3rem;font-weight:900;color:#f0c040;margin:8px 0">Tvůj hod: ${myScore} bodů</div>`;
+    if(allDone){
+      const sorted=Object.entries(d.scores).sort(([,a],[,b])=>b-a);
+      const winPid=sorted[0][0], winPi=gs.players.findIndex(p=>p.id===winPid);
+      html+=`<div style="margin:12px 0">${sorted.map(([pid,sc])=>{const pi=gs.players.findIndex(p=>p.id===pid);return `<div style="color:${COLORS[pi]||'#eee'};margin:4px 0">${gs.players[pi]?.name}: ${sc}b</div>`}).join('')}</div>`;
+      html+=`<button class="btn btn-gold" onclick="finishDarts(${winPi})">🏆 Výsledky!</button>`;
     } else {
-      html += `<div style="color:#aaa; font-size:0.85rem;">Čekáme na ostatní hráče... (${totalScores}/${gameState.players.length})</div>`;
+      html+=`<div style="color:#888;font-size:.85rem">Čekáme... (${Object.keys(d.scores).length}/${gs.players.length})</div>`;
     }
   } else {
-    // Show throw meter
-    html += `
-      <div style="margin:16px 0;">
-        <div style="font-size:0.85rem; color:#aaa; margin-bottom:6px;">Načasuj hod! Klikni v pravý moment:</div>
-        <div class="dart-meter" id="dart-meter-bg">
-          <div class="dart-fill" id="dart-fill" style="width:0%; background: linear-gradient(90deg, #e74c3c, #f0c040, #2ecc71);"></div>
-        </div>
-        <button class="btn btn-red" style="margin-top:12px; font-size:1.1rem;" onclick="throwDart()">🎯 HOD!</button>
-      </div>
-    `;
-    
-    // Start meter animation
-    setTimeout(startDartMeter, 100);
+    html+=`<div class="dart-meter-wrap"><div style="font-size:.82rem;color:#888;margin-bottom:6px">Načasuj hod – klikni v zeleném!</div><div class="dart-meter"><div class="dart-fill" id="df" style="width:0%"></div></div><button class="btn btn-red" style="margin-top:12px;font-size:1.1rem" onclick="throwDart()">🎯 HOD!</button></div>`;
   }
-  
   return html;
 }
 
-let dartMeterRunning = false;
-let dartMeterVal = 0;
-let dartMeterDir = 1;
-
-function startDartMeter() {
-  if (dartMeterRunning) return;
-  dartMeterRunning = true;
-  
-  function tick() {
-    if (!dartMeterRunning) return;
-    dartMeterVal += dartMeterDir * 2.5;
-    if (dartMeterVal >= 100) { dartMeterVal = 100; dartMeterDir = -1; }
-    if (dartMeterVal <= 0) { dartMeterVal = 0; dartMeterDir = 1; }
-    const el = document.getElementById('dart-fill');
-    if (el) {
-      el.style.width = dartMeterVal + '%';
-      requestAnimationFrame(tick);
-    } else {
-      dartMeterRunning = false;
-    }
+function startDartMeter(){
+  if(dartMeterRunning) return; dartMeterRunning=true; dartVal=0; dartDir=1;
+  function tick(){
+    if(!dartMeterRunning) return;
+    dartVal+=dartDir*2.8; if(dartVal>=100){dartVal=100;dartDir=-1;} if(dartVal<=0){dartVal=0;dartDir=1;}
+    const el=document.getElementById('df');
+    if(el){ el.style.width=dartVal+'%'; requestAnimationFrame(tick); } else { dartMeterRunning=false; }
   }
   requestAnimationFrame(tick);
 }
 
-async function throwDart() {
-  dartMeterRunning = false;
-  const score = Math.round(dartMeterVal);
-  
-  const gs = await storageLoad('game_' + roomCode);
-  if (!gs) return;
-  if (!gs.miniData.scores) gs.miniData.scores = {};
-  gs.miniData.scores[myId] = score;
-  gs.lastUpdate = Date.now();
-  await storageSave('game_' + roomCode, gs);
-  gameState = gs;
-  showMiniGameModal();
+async function throwDart(){
+  dartMeterRunning=false;
+  const score=Math.round(dartVal);
+  const snap=await gameRef(roomCode).once('value'); const state=snap.val(); if(!state) return;
+  if(!state.miniData.scores) state.miniData.scores={};
+  state.miniData.scores[myId]=score;
+  state.ts=Date.now(); await gameRef(roomCode).set(state);
 }
 
-function renderWheel(myPlayerIdx) {
-  const data = gameState.miniData;
-  const isHost = myPlayerIdx === gameState.miniTrigger;
-  
-  const segments = ['💰 +100', '💸 -50', '🎲 Random', '🔄 Swap', '💀 -all', '⭐ +200', '🃏 Steal', '🎁 +50'];
-  
-  let html = `
-    <div style="color:#aaa; font-size:0.85rem; margin-bottom:8px;">Kolo osudu!</div>
-    <div style="font-size:3rem; margin:12px; text-align:center;">🎡</div>
-  `;
-  
-  if (data.revealed) {
-    html += `<div class="wheel-result" style="color:#f0c040;">${data.result}</div>`;
-    html += `<button class="btn btn-gold" onclick="applyWheelResult()">Aplikovat!</button>`;
+async function finishDarts(winPi){
+  const snap=await gameRef(roomCode).once('value'); const state=snap.val(); if(!state) return;
+  state.players[winPi].coins+=80; state.log=[...(state.log||[]),`🎯 ${state.players[winPi].name} vyhrál šipky! +80`];
+  await resolveMini(state, winPi);
+}
+
+// Wheel
+function renderWheel(myPi){
+  const d=gs.miniData, trig=gs.miniTrigger, isMe=myPi===trig;
+  let html=`<h2>🎡 Kolo Osudu</h2>`;
+  if(d.revealed){
+    html+=`<div class="wheel-display">🎡</div><div class="wheel-result-text">${d.result}</div>`;
+    if(isMe) html+=`<button class="btn btn-gold" onclick="applyWheel()">Aplikovat!</button>`;
+    else html+=`<div style="color:#888">Čekáš na ${gs.players[trig].name}...</div>`;
   } else {
-    html += `<div style="color:#aaa; font-size:0.9rem; margin:16px 0;">Kolo se točí<span class="waiting-dots">...</span></div>`;
-    if (isHost) {
-      html += `<button class="btn btn-gold" onclick="spinWheel()">🎡 Točit kolem!</button>`;
-    }
+    html+=`<div style="font-size:3rem;margin:12px 0">🎡</div>`;
+    if(isMe) html+=`<button class="btn btn-gold" style="font-size:1.1rem;padding:14px 28px" onclick="spinWheel()">🎡 Točit!</button>`;
+    else html+=`<div style="color:#888">Čekáš, ${gs.players[trig].name} točí kolem...</div>`;
   }
-  
   return html;
 }
 
-async function spinWheel() {
-  const gs = await storageLoad('game_' + roomCode);
-  if (!gs) return;
-  gs.miniData.revealed = true;
-  gs.lastUpdate = Date.now();
-  await storageSave('game_' + roomCode, gs);
-  gameState = gs;
-  showMiniGameModal();
+async function spinWheel(){
+  const snap=await gameRef(roomCode).once('value'); const state=snap.val(); if(!state) return;
+  state.miniData.revealed=true; state.ts=Date.now(); await gameRef(roomCode).set(state);
 }
 
-async function revealWheel() {
-  await spinWheel();
+async function applyWheel(){
+  const snap=await gameRef(roomCode).once('value'); const state=snap.val(); if(!state) return;
+  const res=state.miniData.result, pi=state.miniTrigger;
+  if(res.includes('+100')) state.players[pi].coins+=100;
+  else if(res.includes('-50')) state.players[pi].coins=Math.max(0,state.players[pi].coins-50);
+  else if(res.includes('+200')) state.players[pi].coins+=200;
+  else if(res.includes('+75')) state.players[pi].coins+=75;
+  else if(res.includes('Vše pryč')) state.players[pi].coins=0;
+  else if(res.includes('Ukradni')){ const other=(pi+1)%state.players.length; state.players[other].coins=Math.max(0,state.players[other].coins-50); state.players[pi].coins+=50; }
+  else if(res.includes('Swap')){ const o=(pi+1)%state.players.length; const t=state.players[pi].coins; state.players[pi].coins=state.players[o].coins; state.players[o].coins=t; }
+  state.log=[...(state.log||[]),`🎡 ${state.players[pi].name}: ${res}`];
+  await resolveMini(state, pi);
 }
 
-async function applyWheelResult() {
-  const gs = await storageLoad('game_' + roomCode);
-  if (!gs) return;
-  const result = gs.miniData.result;
-  const triggerPi = gs.miniTrigger;
-  
-  if (result.includes('+100')) gs.players[triggerPi].coins += 100;
-  else if (result.includes('-50')) gs.players[triggerPi].coins = Math.max(0, gs.players[triggerPi].coins - 50);
-  else if (result.includes('+200')) gs.players[triggerPi].coins += 200;
-  else if (result.includes('+50')) gs.players[triggerPi].coins += 50;
-  else if (result.includes('-all')) gs.players[triggerPi].coins = 0;
-  else if (result.includes('Swap') && gs.players.length > 1) {
-    const other = (triggerPi + 1) % gs.players.length;
-    const tmp = gs.players[triggerPi].coins;
-    gs.players[triggerPi].coins = gs.players[other].coins;
-    gs.players[other].coins = tmp;
-  }
-  
-  gs.log.push(`🎡 Kolo: ${result} pro ${gs.players[triggerPi].name}!`);
-  await finishMiniWithState(gs, triggerPi);
-}
-
-async function finishMini(type, winnerPi) {
-  const gs = await storageLoad('game_' + roomCode);
-  if (!gs) return;
-  
-  if (type === 'rr_lose') {
-    const pi = gs.miniTrigger;
-    gs.players[pi].coins = Math.max(0, gs.players[pi].coins - 80);
-    gs.log.push(`💥 ${gs.players[pi].name} dostal kuli! -80 mincí`);
-  } else if (type.startsWith('bj_')) {
-    const pi = gs.miniTrigger;
-    if (type === 'bj_win') { gs.players[pi].coins += 60; gs.log.push(`🃏 ${gs.players[pi].name} vyhrál Blackjack! +60`); }
-    else if (type === 'bj_bust') { gs.players[pi].coins = Math.max(0, gs.players[pi].coins - 40); gs.log.push(`💥 Bust! ${gs.players[pi].name} -40`); }
-    else { gs.log.push(`🤝 Push! Nikdo nevyhrál`); }
-  } else if (type === 'darts') {
-    gs.players[winnerPi].coins += 80;
-    gs.log.push(`🎯 ${gs.players[winnerPi].name} vyhrál šipky! +80`);
-  }
-  
-  await finishMiniWithState(gs, winnerPi !== undefined ? winnerPi : gs.miniTrigger);
-}
-
-async function finishMiniWithState(gs, winnerPi) {
-  // Resolve mini bets
-  const pot = gs.miniPot || 0;
-  if (pot > 0 && winnerPi !== undefined) {
-    const winners = Object.entries(gs.miniPlayerBets || {}).filter(([pid, bet]) => bet.target === winnerPi);
-    const totalWinnerBets = winners.reduce((s, [, b]) => s + b.amount, 0);
-    winners.forEach(([pid, bet]) => {
-      const pi = gs.players.findIndex(p => p.id === pid);
-      if (pi >= 0) {
-        const share = Math.round(pot * (bet.amount / (totalWinnerBets || 1)));
-        gs.players[pi].coins += share;
-        gs.log.push(`💰 ${gs.players[pi].name} vyhrál sázku +${share} mincí!`);
-      }
+async function resolveMini(state, winPi){
+  const pot=state.miniPot||0;
+  if(pot>0){
+    const bets=Object.entries(state.miniPlayerBets||{}).filter(([pid,b])=>b.target===winPi);
+    const total=bets.reduce((s,[,b])=>s+b.amount,0)||1;
+    bets.forEach(([pid,b])=>{
+      const pi=state.players.findIndex(p=>p.id===pid);
+      if(pi>=0){ const share=Math.round(pot*(b.amount/total)); state.players[pi].coins+=share; state.log=[...(state.log||[]),`💰 ${state.players[pi].name} vyhrál sázku +${share}!`]; }
     });
   }
-  
-  gs.phase = 'bet_or_roll';
-  gs.turn++;
-  gs.dice = null;
-  gs.miniGame = null;
-  gs.miniPlayerBets = {};
-  gs.miniPot = 0;
-  gs.lastUpdate = Date.now();
-  
-  await storageSave('game_' + roomCode, gs);
-  gameState = gs;
-  closeMiniModal();
-  closeMiniBetModal();
-  renderGameUI();
-  drawBoard();
+  nextTurn(state); state.miniGame=null; state.miniPlayerBets={}; state.miniPot=0; state.miniData=null;
+  state.ts=Date.now(); await gameRef(roomCode).set(state);
 }
 
-function closeMiniModal() { document.getElementById('mini-modal').style.display = 'none'; }
-function closeMiniBetModal() { document.getElementById('mini-bet-modal').style.display = 'none'; }
-
-function showWinnerModal() {
-  if (!gameState || gameState.winner === undefined) return;
-  const winner = gameState.players[gameState.winner];
-  document.getElementById('winner-content').innerHTML = `
-    <div style="font-size: 3rem; margin-bottom:12px;">🏆</div>
-    <div class="winner-banner">${winner.name} vyhrál!</div>
-    <div class="winner-coins">Zbývající mince: ${winner.coins}</div>
-    <div style="margin-top:20px;">
-      <button class="btn btn-gold" onclick="document.getElementById('winner-modal').style.display='none'">Zavřít</button>
-    </div>
-  `;
-  document.getElementById('winner-modal').style.display = 'flex';
+// ===== WINNER =====
+function showWinnerModal(){
+  if(!gs||gs.winner===undefined) return;
+  const w=gs.players[gs.winner];
+  document.getElementById('winner-body').innerHTML=`
+    <div class="winner-screen">
+      <div class="winner-trophy">🏆</div>
+      <div class="winner-name">${w.name}</div>
+      <div style="color:#888;margin:8px 0 16px">vyhrál hru!</div>
+      <div style="color:#f0c040;font-size:1rem;font-weight:700">💰 ${w.coins} mincí zbývá</div>
+      <div style="margin-top:20px"><button class="btn btn-gold" onclick="closeModal('modal-winner')">Zavřít</button></div>
+    </div>`;
+  document.getElementById('modal-winner').style.display='flex';
 }
-
-// ===== INIT =====
-boardSquares = computeBoard();
 </script>
 </body>
 </html>
