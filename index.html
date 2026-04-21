@@ -214,10 +214,12 @@ input[type=text]:focus,input[type=number]:focus{border-color:#f0c040}
 
 <script>
 // ===== FIREBASE CONFIG =====
-firebase.initializeApp({
-  apiKey: "AIzaSyDummy-replaced-by-database-url",
-  databaseURL: "https://clovece-nezlob-se-fdb9f-default-rtdb.europe-west1.firebasedatabase.app"
-});
+try {
+  firebase.initializeApp({
+    apiKey: "AIzaSyB_placeholder_not_needed_for_rtdb",
+    databaseURL: "https://clovece-nezlob-se-fdb9f-default-rtdb.europe-west1.firebasedatabase.app"
+  });
+} catch(e) { /* already initialized */ }
 const db = firebase.database();
 
 // ===== CONSTANTS =====
@@ -249,6 +251,13 @@ function notify(msg) {
   document.body.appendChild(n); setTimeout(() => n.remove(), 3000);
 }
 
+// Firebase ukládá arrays jako objects – tato funkce vždy vrátí čistý array
+function toArray(val) {
+  if (!val) return [];
+  if (Array.isArray(val)) return val;
+  return Object.values(val);
+}
+
 // ===== FIREBASE HELPERS =====
 function roomRef(c) { return db.ref('rooms/' + c); }
 function gameRef(c) { return db.ref('games/' + c); }
@@ -257,11 +266,20 @@ function gameRef(c) { return db.ref('games/' + c); }
 async function createRoom() {
   const name = document.getElementById('player-name').value.trim();
   if (!name) { err('Zadej přezdívku!'); return; }
-  myId = uid(); myName = name; roomCode = code4(); isHost = true;
-  const room = { code: roomCode, host: myId, status: 'waiting', players: [{ id: myId, name: myName, color: 0 }], ts: Date.now() };
-  await roomRef(roomCode).set(room);
-  showWaiting(room);
-  listenRoom();
+  err('Vytváří se místnost...');
+  try {
+    myId = uid(); myName = name; roomCode = code4(); isHost = true;
+    // Hráče ukládáme jako object s klíčem, ne array – Firebase to bezpečně přenese
+    const room = {
+      code: roomCode, host: myId, status: 'waiting',
+      players: { 0: { id: myId, name: myName, color: 0 } },
+      playerCount: 1, ts: Date.now()
+    };
+    await roomRef(roomCode).set(room);
+    showWaiting(room);
+    listenRoom();
+    err('');
+  } catch(e) { err('Chyba: ' + e.message); }
 }
 
 async function joinRoom() {
@@ -269,24 +287,32 @@ async function joinRoom() {
   if (!name) { err('Zadej přezdívku!'); return; }
   const code = document.getElementById('join-code').value.trim().toUpperCase();
   if (code.length !== 4) { err('Zadej 4místný kód!'); return; }
-  const snap = await roomRef(code).once('value');
-  const room = snap.val();
-  if (!room) { err('Místnost neexistuje!'); return; }
-  if (room.status !== 'waiting') { err('Hra už běží!'); return; }
-  if (room.players && room.players.length >= 4) { err('Místnost je plná!'); return; }
-  myId = uid(); myName = name; roomCode = code; isHost = false;
-  const colorIdx = room.players.length;
-  room.players.push({ id: myId, name: myName, color: colorIdx });
-  await roomRef(code).set(room);
-  showWaiting(room);
-  listenRoom();
+  err('Připojuji se...');
+  try {
+    const snap = await roomRef(code).once('value');
+    const room = snap.val();
+    if (!room) { err('Místnost neexistuje! Zkontroluj kód.'); return; }
+    if (room.status !== 'waiting') { err('Hra už běží!'); return; }
+    const players = toArray(room.players);
+    if (players.length >= 4) { err('Místnost je plná!'); return; }
+    myId = uid(); myName = name; roomCode = code; isHost = false;
+    const colorIdx = players.length;
+    // Přidáme hráče jako nový klíč v objektu
+    await roomRef(code).child('players').child(String(colorIdx)).set({ id: myId, name: myName, color: colorIdx });
+    await roomRef(code).child('playerCount').set(players.length + 1);
+    const updatedSnap = await roomRef(code).once('value');
+    showWaiting(updatedSnap.val());
+    listenRoom();
+    err('');
+  } catch(e) { err('Chyba připojení: ' + e.message); }
 }
 
 function showWaiting(room) {
   showScreen('waiting');
   document.getElementById('wait-code').textContent = roomCode;
-  renderWaitPlayers(room.players);
-  document.getElementById('start-area').style.display = (isHost && room.players && room.players.length >= 2) ? 'block' : 'none';
+  const players = toArray(room.players);
+  renderWaitPlayers(players);
+  document.getElementById('start-area').style.display = (isHost && players.length >= 2) ? 'block' : 'none';
   document.getElementById('wait-status').textContent = isHost ? 'Čekáš na kamarády...' : 'Čekáš, host spustí hru...';
 }
 
@@ -296,9 +322,10 @@ function listenRoom() {
   const handler = ref.on('value', snap => {
     const room = snap.val();
     if (!room) return;
+    const players = toArray(room.players);
     if (room.status === 'waiting') {
-      renderWaitPlayers(room.players);
-      document.getElementById('start-area').style.display = (isHost && room.players && room.players.length >= 2) ? 'block' : 'none';
+      renderWaitPlayers(players);
+      document.getElementById('start-area').style.display = (isHost && players.length >= 2) ? 'block' : 'none';
     } else if (room.status === 'playing') {
       ref.off('value', handler);
       listenGame();
@@ -308,7 +335,7 @@ function listenRoom() {
 }
 
 function renderWaitPlayers(players) {
-  document.getElementById('wait-players').innerHTML = (players||[]).map(p =>
+  document.getElementById('wait-players').innerHTML = players.map(p =>
     `<div class="player-chip" style="background:${COLORS[p.color]}22;color:${COLORS[p.color]};border:1px solid ${COLORS[p.color]}55">${p.id===myId?'★ ':''}${p.name}</div>`
   ).join('');
 }
@@ -317,8 +344,9 @@ async function startGame() {
   const snap = await roomRef(roomCode).once('value');
   const room = snap.val();
   if (!room) return;
+  const players = toArray(room.players);
   await roomRef(roomCode).update({ status: 'playing' });
-  const state = initGame(room.players);
+  const state = initGame(players);
   await gameRef(roomCode).set(state);
 }
 
@@ -335,6 +363,17 @@ function initGame(players) {
   };
 }
 
+// Normalizuje Firebase objekt/array -> čistý JS stav
+function normalizeState(state) {
+  if (!state) return state;
+  state.players = toArray(state.players);
+  state.pawns = toArray(state.pawns);
+  state.log = toArray(state.log);
+  if (!state.miniPlayerBets) state.miniPlayerBets = {};
+  if (!state.diceBets) state.diceBets = {};
+  return state;
+}
+
 // ===== LISTEN GAME =====
 function listenGame() {
   if (unsubscribeGame) unsubscribeGame();
@@ -343,9 +382,9 @@ function listenGame() {
   drawBoard(null);
   const ref = gameRef(roomCode);
   const handler = ref.on('value', snap => {
-    const state = snap.val();
-    if (!state) return;
-    gs = state;
+    const raw = snap.val();
+    if (!raw) return;
+    gs = normalizeState(raw);
     drawBoard(gs);
     renderUI();
     handleModals();
@@ -537,7 +576,7 @@ async function rollDice() {
   const result = Math.floor(Math.random()*6)+1;
   dEl.textContent = DICE_FACES[result-1];
 
-  const snap = await gameRef(roomCode).once('value'); const state = snap.val();
+  const snap = await gameRef(roomCode).once('value'); const state = normalizeState(snap.val());
   if(!state) return;
 
   state.dice = result;
@@ -577,7 +616,7 @@ function renderMoveOptions() {
 }
 
 async function movePawn(pawnId) {
-  const snap = await gameRef(roomCode).once('value'); const state = snap.val();
+  const snap = await gameRef(roomCode).once('value'); const state = normalizeState(snap.val());
   if(!state) return;
   const myPi = state.players.findIndex(p=>p.id===myId);
   const pawn = state.pawns.find(p=>p.id===pawnId);
@@ -637,7 +676,7 @@ async function movePawn(pawnId) {
 }
 
 async function skipTurn() {
-  const snap = await gameRef(roomCode).once('value'); const state=snap.val(); if(!state) return;
+  const snap = await gameRef(roomCode).once('value'); const state=normalizeState(snap.val()); if(!state) return;
   nextTurn(state); state.ts=Date.now(); await gameRef(roomCode).set(state);
 }
 
@@ -673,7 +712,7 @@ function showMiniBetModal() {
 
 async function placeMinibet(targetPi) {
   const amt=parseInt(document.getElementById('mb-amt').value)||50;
-  const snap=await gameRef(roomCode).once('value'); const state=snap.val(); if(!state) return;
+  const snap=await gameRef(roomCode).once('value'); const state=normalizeState(snap.val()); if(!state) return;
   const myPi=state.players.findIndex(p=>p.id===myId);
   const real=Math.min(amt,state.players[myPi].coins);
   state.players[myPi].coins-=real;
@@ -686,7 +725,7 @@ async function placeMinibet(targetPi) {
 }
 
 async function launchMini() {
-  const snap=await gameRef(roomCode).once('value'); const state=snap.val(); if(!state) return;
+  const snap=await gameRef(roomCode).once('value'); const state=normalizeState(snap.val()); if(!state) return;
   state.miniData=generateMiniData(state.miniGame);
   state.phase='mini_game'; state.ts=Date.now();
   await gameRef(roomCode).set(state);
@@ -750,7 +789,7 @@ function renderRR(myPi){
 }
 
 async function rrPull(){
-  const snap=await gameRef(roomCode).once('value'); const state=snap.val(); if(!state) return;
+  const snap=await gameRef(roomCode).once('value'); const state=normalizeState(snap.val()); if(!state) return;
   const d=state.miniData;
   if(!d.revealed) d.revealed=[];
   d.revealed.push(d.revealed.length);
@@ -758,7 +797,7 @@ async function rrPull(){
 }
 
 async function finishRR(outcome){
-  const snap=await gameRef(roomCode).once('value'); const state=snap.val(); if(!state) return;
+  const snap=await gameRef(roomCode).once('value'); const state=normalizeState(snap.val()); if(!state) return;
   const pi=state.miniTrigger;
   if(outcome==='lose'){ state.players[pi].coins=Math.max(0,state.players[pi].coins-80); state.log=[...(state.log||[]),`💥 ${state.players[pi].name} dostal kuli! -80 mincí`]; }
   else { state.players[pi].coins+=40; state.log=[...(state.log||[]),`😎 ${state.players[pi].name} přežil! +40 mincí`]; }
@@ -774,7 +813,7 @@ function renderBJ(myPi){
   let html=`<h2>🃏 Blackjack</h2><div style="color:#888;font-size:.85rem;margin-bottom:10px">Hráč: <b style="color:${COLORS[trig]}">${gs.players[trig].name}</b></div>`;
   if(!isMe){
     html+=`<div style="color:#888;margin:20px 0">Čekáš na výsledek...</div>`;
-    if(d.result) html+=`<div style="font-size:1.3rem;font-weight:900;color:#f0c040;margin:12px 0">${d.result==='win'?'🏆 Výhra! +60':'d.result==='push'?'🤝 Push':'💥 Prohra! -40'}</div>`;
+    if(d.result){ const rLabel=d.result==='win'?'🏆 Výhra! +60':d.result==='push'?'🤝 Push':'💥 Prohra! -40'; html+=`<div style="font-size:1.3rem;font-weight:900;color:#f0c040;margin:12px 0">${rLabel}</div>`; }
     return html;
   }
   html+=`<div class="cards-row">`;
@@ -788,18 +827,18 @@ function renderBJ(myPi){
 }
 
 async function bjDeal(){
-  const snap=await gameRef(roomCode).once('value'); const state=snap.val(); if(!state) return;
+  const snap=await gameRef(roomCode).once('value'); const state=normalizeState(snap.val()); if(!state) return;
   const d=state.miniData; if(!d.hands) d.hands={};
   d.hands[myId]=[d.deck.pop(),d.deck.pop()];
   state.ts=Date.now(); await gameRef(roomCode).set(state);
 }
 async function bjHit(){
-  const snap=await gameRef(roomCode).once('value'); const state=snap.val(); if(!state) return;
+  const snap=await gameRef(roomCode).once('value'); const state=normalizeState(snap.val()); if(!state) return;
   state.miniData.hands[myId].push(state.miniData.deck.pop());
   state.ts=Date.now(); await gameRef(roomCode).set(state);
 }
 async function bjStand(){
-  const snap=await gameRef(roomCode).once('value'); const state=snap.val(); if(!state) return;
+  const snap=await gameRef(roomCode).once('value'); const state=normalizeState(snap.val()); if(!state) return;
   const d=state.miniData, hand=d.hands[myId]||[];
   const myScore=hand.reduce((s,c)=>s+cardVal(c),0);
   const houseHand=[d.deck.pop(),d.deck.pop()];
@@ -809,7 +848,7 @@ async function bjStand(){
   d.houseScore=hs; state.ts=Date.now(); await gameRef(roomCode).set(state);
 }
 async function finishBJ(type){
-  const snap=await gameRef(roomCode).once('value'); const state=snap.val(); if(!state) return;
+  const snap=await gameRef(roomCode).once('value'); const state=normalizeState(snap.val()); if(!state) return;
   const pi=state.miniTrigger;
   const d=state.miniData.result||type;
   if(d==='win'){ state.players[pi].coins+=60; state.log=[...(state.log||[]),`🃏 ${state.players[pi].name} vyhrál Blackjack! +60`]; }
@@ -854,14 +893,14 @@ function startDartMeter(){
 async function throwDart(){
   dartMeterRunning=false;
   const score=Math.round(dartVal);
-  const snap=await gameRef(roomCode).once('value'); const state=snap.val(); if(!state) return;
+  const snap=await gameRef(roomCode).once('value'); const state=normalizeState(snap.val()); if(!state) return;
   if(!state.miniData.scores) state.miniData.scores={};
   state.miniData.scores[myId]=score;
   state.ts=Date.now(); await gameRef(roomCode).set(state);
 }
 
 async function finishDarts(winPi){
-  const snap=await gameRef(roomCode).once('value'); const state=snap.val(); if(!state) return;
+  const snap=await gameRef(roomCode).once('value'); const state=normalizeState(snap.val()); if(!state) return;
   state.players[winPi].coins+=80; state.log=[...(state.log||[]),`🎯 ${state.players[winPi].name} vyhrál šipky! +80`];
   await resolveMini(state, winPi);
 }
@@ -883,12 +922,12 @@ function renderWheel(myPi){
 }
 
 async function spinWheel(){
-  const snap=await gameRef(roomCode).once('value'); const state=snap.val(); if(!state) return;
+  const snap=await gameRef(roomCode).once('value'); const state=normalizeState(snap.val()); if(!state) return;
   state.miniData.revealed=true; state.ts=Date.now(); await gameRef(roomCode).set(state);
 }
 
 async function applyWheel(){
-  const snap=await gameRef(roomCode).once('value'); const state=snap.val(); if(!state) return;
+  const snap=await gameRef(roomCode).once('value'); const state=normalizeState(snap.val()); if(!state) return;
   const res=state.miniData.result, pi=state.miniTrigger;
   if(res.includes('+100')) state.players[pi].coins+=100;
   else if(res.includes('-50')) state.players[pi].coins=Math.max(0,state.players[pi].coins-50);
